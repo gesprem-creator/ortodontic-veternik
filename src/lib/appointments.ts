@@ -305,9 +305,15 @@ export async function createAppointment(data: CreateAppointmentData) {
     throw new Error('Termin nije dostupan')
   }
 
+  // Postavi datum na podne da bi se izbegli problemi sa vremenskom zonom
+  const appointmentDate = new Date(data.date)
+  appointmentDate.setHours(12, 0, 0, 0)
+
+  console.log('📅 Saving appointment with date:', appointmentDate.toISOString())
+
   const appointment = await db.appointment.create({
     data: {
-      date: data.date,
+      date: appointmentDate,
       timeSlot: data.timeSlot,
       duration,
       serviceType: data.serviceType,
@@ -345,6 +351,8 @@ export async function getAppointmentsForWeek(startDate: Date) {
   
   const days = ['Nedelja', 'Ponedeljak', 'Utorak', 'Sreda', 'Četvrtak', 'Petak', 'Subota']
   
+  console.log('📊 Fetching appointments for week starting:', startDate.toISOString())
+  
   for (let i = 0; i < 7; i++) {
     const date = new Date(startDate)
     date.setDate(date.getDate() + i)
@@ -358,6 +366,8 @@ export async function getAppointmentsForWeek(startDate: Date) {
     
     const dayOfWeek = date.getDay()
     const dayName = days[dayOfWeek]
+    
+    console.log(`📅 Day ${i}: ${dayName} - searching between ${dayStart.toISOString()} and ${dayEnd.toISOString()}`)
     
     const dayAppointments = await db.appointment.findMany({
       where: {
@@ -382,6 +392,8 @@ export async function getAppointmentsForWeek(startDate: Date) {
         patientPhone: true,
       }
     })
+    
+    console.log(`📋 Found ${dayAppointments.length} appointments for ${dayName}`)
     
     appointments.push({
       date,

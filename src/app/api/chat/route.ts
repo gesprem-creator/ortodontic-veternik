@@ -431,10 +431,13 @@ export async function POST(request: NextRequest) {
         
         if (name && phone) {
           try {
+            // Normalizuj datum na podne da bi se izbegli problemi sa vremenskom zonom
             const appointmentDate = new Date(state.proposedDate)
+            appointmentDate.setHours(12, 0, 0, 0)
             
+            console.log('🔍 NEW CODE - Date normalized to noon:', appointmentDate.toISOString())
             console.log('📅 Creating appointment:', {
-              date: appointmentDate,
+              date: appointmentDate.toISOString(),
               timeSlot: state.proposedTime,
               serviceType: state.serviceType,
               patientName: name,
@@ -452,32 +455,36 @@ export async function POST(request: NextRequest) {
             
             console.log('✅ Appointment created:', appointment.id)
             
-            // Sačuvaj pacijenta u imeniku
+            // Sačuvaj pacijenta u imeniku (samo ako Patient model postoji)
             try {
-              const existingPatient = await db.patient.findFirst({
-                where: { phone: phone },
-              })
-              
-              if (existingPatient) {
-                console.log('📝 Updating existing patient:', existingPatient.id)
-                await db.patient.update({
-                  where: { id: existingPatient.id },
-                  data: {
-                    visitCount: { increment: 1 },
-                    lastVisit: appointmentDate,
-                  },
+              if (db.patient) {
+                const existingPatient = await db.patient.findFirst({
+                  where: { phone: phone },
                 })
+                
+                if (existingPatient) {
+                  console.log('📝 Updating existing patient:', existingPatient.id)
+                  await db.patient.update({
+                    where: { id: existingPatient.id },
+                    data: {
+                      visitCount: { increment: 1 },
+                      lastVisit: appointmentDate,
+                    },
+                  })
+                } else {
+                  console.log('➕ Creating new patient:', name, phone)
+                  const newPatient = await db.patient.create({
+                    data: {
+                      name: name,
+                      phone: phone,
+                      visitCount: 1,
+                      lastVisit: appointmentDate,
+                    },
+                  })
+                  console.log('✅ Patient created:', newPatient.id)
+                }
               } else {
-                console.log('➕ Creating new patient:', name, phone)
-                const newPatient = await db.patient.create({
-                  data: {
-                    name: name,
-                    phone: phone,
-                    visitCount: 1,
-                    lastVisit: appointmentDate,
-                  },
-                })
-                console.log('✅ Patient created:', newPatient.id)
+                console.log('⚠️ Patient model not available, skipping patient save')
               }
             } catch (patientError) {
               console.error('❌ Error saving patient to directory:', patientError)
@@ -582,3 +589,4 @@ export async function DELETE(request: NextRequest) {
   
   return NextResponse.json({ success: true })
 }
+// Force recompile
