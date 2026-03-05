@@ -239,8 +239,8 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
         // Parsiraj dugmiće iz odgovora ako postoje
         let buttons: QuickButton[] | undefined = undefined
         let timeSlots: string[] | undefined = undefined
-        let content = data.response
-        const lowerResponse = data.response.toLowerCase()
+        let content = data.response || 'Greška: Nema odgovora'
+        const lowerResponse = (data.response || '').toLowerCase()
         
         // Ako API vrati timeSlots, koristi ih za klikabilne dugmiće
         if (data.timeSlots && data.timeSlots.length > 0) {
@@ -311,6 +311,7 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
   }
 
   const formatMessage = (content: string) => {
+    if (!content || typeof content !== 'string') return ''
     return content
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\n/g, '<br/>')

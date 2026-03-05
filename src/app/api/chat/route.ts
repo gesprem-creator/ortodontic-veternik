@@ -433,6 +433,14 @@ export async function POST(request: NextRequest) {
           try {
             const appointmentDate = new Date(state.proposedDate)
             
+            console.log('📅 Creating appointment:', {
+              date: appointmentDate,
+              timeSlot: state.proposedTime,
+              serviceType: state.serviceType,
+              patientName: name,
+              patientPhone: phone,
+            })
+            
             // Prvo kreiraj termin
             const appointment = await createAppointment({
               date: appointmentDate,
@@ -442,13 +450,16 @@ export async function POST(request: NextRequest) {
               patientPhone: phone,
             })
             
-            // Pokušaj da sačuvaš pacijenta u imeniku (ne prekidaj ako ne uspe)
+            console.log('✅ Appointment created:', appointment.id)
+            
+            // Sačuvaj pacijenta u imeniku
             try {
               const existingPatient = await db.patient.findFirst({
                 where: { phone: phone },
               })
               
               if (existingPatient) {
+                console.log('📝 Updating existing patient:', existingPatient.id)
                 await db.patient.update({
                   where: { id: existingPatient.id },
                   data: {
@@ -457,7 +468,8 @@ export async function POST(request: NextRequest) {
                   },
                 })
               } else {
-                await db.patient.create({
+                console.log('➕ Creating new patient:', name, phone)
+                const newPatient = await db.patient.create({
                   data: {
                     name: name,
                     phone: phone,
@@ -465,10 +477,10 @@ export async function POST(request: NextRequest) {
                     lastVisit: appointmentDate,
                   },
                 })
+                console.log('✅ Patient created:', newPatient.id)
               }
             } catch (patientError) {
-              // Samo loguj grešku, ne prekidaj proces
-              console.error('Error saving patient to directory:', patientError)
+              console.error('❌ Error saving patient to directory:', patientError)
             }
             
             const serviceName = SERVICE_NAMES[state.serviceType!]
