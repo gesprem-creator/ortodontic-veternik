@@ -6,13 +6,13 @@ generator client {
 }
 
 datasource db {
-  provider  = "sqlite"
+  provider  = "postgresql"
   url       = env("DATABASE_URL")
 }
 
 // Tipovi usluga
 enum ServiceType {
-  REPAIR        // Popravka - 30 min (stomatolog)
+  REPAIR        // Popravka - 60 min (stomatolog)
   TREATMENT     // Lečenje - 1 sat (stomatolog)
   ORTHO_CHECKUP // Ortodontska kontrola - 15 min (ortodont)
   ORTHO_BONDING // Lepljenje fiksne - 45 min (ortodont)
