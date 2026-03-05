@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
         sessionState.set(sessionId, state)
         return NextResponse.json({
           success: true,
-          response: 'Izabrali ste popravku zuba (30 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-20:00\n• Petak: 14:00-18:00',
+          response: 'Izabrali ste popravku zuba (60 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-20:00\n• Petak: 14:00-18:00',
         })
       }
       if (lowerMessage.includes('lečenje') || lowerMessage.includes('lecenje')) {
@@ -232,6 +232,17 @@ export async function POST(request: NextRequest) {
             success: true,
             response: '❌ Ortodont radi samo petkom od 18:00 do 21:30h.\n\nDa li želite da zakažete za petak? Recite "petak" i vreme kada želite da dođete.',
           })
+        }
+        
+        // Provera za stomatologa - petak posle 18h ne radi (tu je ortodont)
+        if (state.provider === 'DENTIST' && date.getDay() === 5) {
+          const requestedHour = parseInt(timeStr.split(':')[0])
+          if (requestedHour >= 18) {
+            return NextResponse.json({
+              success: true,
+              response: '❌ U tim terminima radi ortodont. Izaberite neki raniji termin u petak, npr. 17:00 ili ranije.\n\nRadno vreme stomatologa petkom je od 14:00 do 18:00.',
+            })
+          }
         }
         
         // Proveri dostupnost
@@ -388,7 +399,17 @@ export async function POST(request: NextRequest) {
     if (lowerMessage.includes('pomoć') || lowerMessage.includes('pomoc') || lowerMessage.includes('info') || lowerMessage.includes('informacije')) {
       return NextResponse.json({
         success: true,
-        response: `🦷 **Stomatološka ordinacija "Ortodontic" - Veternik**\n\n📅 **Radno vreme:**\n• Stomatolog: Ponedeljak-Petak 14:00-20:00 (Petak do 18:00)\n• Ortodont: Samo Petak 18:00-21:30\n\n📋 **Usluge:**\n• Stomatolog: Popravka zuba (30 min), Lečenje zuba (60 min)\n• Ortodont: Kontrola (15 min), Lepljenje proteze (45 min), Skidanje proteze (45 min)\n\nDa biste zakazali termin, recite da li želite stomatologa ili ortodonta.`,
+        response: `🦷 **Stomatološka ordinacija "Ortodontic" - Veternik**
+
+📅 **Radno vreme:**
+• Stomatolog: Ponedeljak-Petak 14:00-20:00 (Petak do 18:00)
+• Ortodont: Samo Petak 18:00-21:30
+
+📋 **Usluge:**
+• Stomatolog: Popravka zuba (60 min), Lečenje zuba (60 min)
+• Ortodont: Kontrola (15 min), Lepljenje proteze (45 min), Skidanje proteze (45 min)
+
+Da biste zakazali termin, recite da li želite stomatologa ili ortodonta.`,
       })
     }
     
