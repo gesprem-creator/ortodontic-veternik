@@ -47,6 +47,7 @@ interface Message {
   content: string
   timestamp: Date
   buttons?: QuickButton[]
+  timeSlots?: string[] // Klikabilni vremenski slotovi
 }
 
 interface Appointment {
@@ -237,8 +238,14 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
       if (data.success) {
         // Parsiraj dugmiće iz odgovora ako postoje
         let buttons: QuickButton[] | undefined = undefined
+        let timeSlots: string[] | undefined = undefined
         let content = data.response
         const lowerResponse = data.response.toLowerCase()
+        
+        // Ako API vrati timeSlots, koristi ih za klikabilne dugmiće
+        if (data.timeSlots && data.timeSlots.length > 0) {
+          timeSlots = data.timeSlots
+        }
         
         // Detektuj koje dugmiće prikazati na osnovu sadržaja
         // Za stomatologa - popravka ili lečenje
@@ -278,6 +285,7 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
           content: content,
           timestamp: new Date(),
           buttons,
+          timeSlots,
         }
         setMessages(prev => [...prev, assistantMessage])
       } else {
@@ -363,6 +371,23 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
                         className="rounded-full border-emerald-300 hover:bg-emerald-50 hover:border-emerald-400 text-emerald-700 dark:border-emerald-600 dark:hover:bg-emerald-950 dark:text-emerald-300"
                       >
                         {button.text}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+                {/* Time Slot Buttons */}
+                {message.role === 'assistant' && message.timeSlots && message.timeSlots.length > 0 && (
+                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 mt-3">
+                    {message.timeSlots.map((slot, idx) => (
+                      <Button
+                        key={idx}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => sendMessage(slot)}
+                        disabled={isLoading}
+                        className="rounded-lg border-emerald-300 hover:bg-emerald-50 hover:border-emerald-400 text-emerald-700 dark:border-emerald-600 dark:hover:bg-emerald-950 dark:text-emerald-300 font-mono"
+                      >
+                        {slot}
                       </Button>
                     ))}
                   </div>

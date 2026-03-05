@@ -8,6 +8,7 @@ import {
   isFriday,
 } from '@/lib/appointments'
 import { ServiceType } from '@prisma/client'
+import { db } from '@/lib/db'
 
 // GET - Dohvati termine za nedelju dana
 export async function GET(request: NextRequest) {
@@ -127,6 +128,39 @@ export async function POST(request: NextRequest) {
       patientEmail,
       notes,
     })
+    
+    // Dodaj ili ažuriraj pacijenta u imeniku
+    try {
+      const existingPatient = await db.patient.findFirst({
+        where: { phone: patientPhone },
+      })
+      
+      if (existingPatient) {
+        // Ažuriraj broj poseta i poslednju posetu
+        await db.patient.update({
+          where: { id: existingPatient.id },
+          data: {
+            visitCount: { increment: 1 },
+            lastVisit: appointmentDate,
+          },
+        })
+      } else {
+        // Kreiraj novog pacijenta
+        await db.patient.create({
+          data: {
+            name: patientName,
+            phone: patientPhone,
+            email: patientEmail || null,
+            notes: notes || null,
+            visitCount: 1,
+            lastVisit: appointmentDate,
+          },
+        })
+      }
+    } catch (patientError) {
+      // Ne prekidaj ako ne uspe čuvanje pacijenta
+      console.error('Error saving patient:', patientError)
+    }
     
     return NextResponse.json({
       success: true,

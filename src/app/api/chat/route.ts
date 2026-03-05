@@ -13,6 +13,7 @@ import {
   formatDateSr,
   SERVICE_PROVIDERS,
 } from '@/lib/appointments'
+import { db } from '@/lib/db'
 
 // ==================== PARSIRANJE DATUMA I VREMENA ====================
 
@@ -303,9 +304,15 @@ export async function POST(request: NextRequest) {
         const { slots } = await getAvailableSlots(date, state.serviceType)
         
         if (slots.length > 0) {
+          // ZAPAMTI datum u state da bi kad korisnik klikne na vreme znao koji je dan
+          state.proposedDate = date.toISOString().split('T')[0]
+          sessionState.set(sessionId, state)
+          
+          // Vrati slotove kao posebno polje za klikabilne dugmiće
           return NextResponse.json({
             success: true,
             response: `📅 ${DAYS_SR[date.getDay()]}, ${formatDateSr(date)}\n\nSlobodni termini:\n${slots.map(s => `• ${s}`).join('\n')}\n\nIzaberite vreme kada želite da dođete.`,
+            timeSlots: slots, // Dodaj slotove kao posebno polje za klikabilne dugmiće
           })
         } else {
           return NextResponse.json({
@@ -315,7 +322,71 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      if (!dayInfo && timeStr) {
+      // Ako je poslato samo vreme (klik na dugme), a imamo zapamćen datum
+      if (!dayInfo && timeStr && state.proposedDate) {
+        const date = new Date(state.proposedDate)
+        
+        // Provera za stomatologa - petak posle 18h ne radi (tu je ortodont)
+        if (state.provider === 'DENTIST' && date.getDay() === 5) {
+          const requestedHour = parseInt(timeStr.split(':')[0])
+          if (requestedHour >= 18) {
+            return NextResponse.json({
+              success: true,
+              response: '❌ U tim terminima radi ortodont. Izaberite neki raniji termin u petak, npr. 17:00 ili ranije.\n\nRadno vreme stomatologa petkom je od 14:00 do 18:00.',
+            })
+          }
+        }
+        
+        // Proveri dostupnost
+        const result = await isSlotAvailable(date, timeStr, state.serviceType)
+        
+        if (result.available) {
+          state.proposedTime = timeStr
+          sessionState.set(sessionId, state)
+          
+          const serviceName = SERVICE_NAMES[state.serviceType]
+          const duration = SERVICE_DURATIONS[state.serviceType]
+          const endTime = formatTime(parseTime(timeStr) + duration / 60)
+          
+          return NextResponse.json({
+            success: true,
+            response: `✅ Termin je slobodan!\n\n📅 **${serviceName}**\n🗓️ ${DAYS_SR[date.getDay()]}, ${formatDateSr(date)}\n🕐 ${timeStr} - ${endTime} (${duration} min)\n\nDa li vam odgovara ovaj termin? Odgovorite sa "da" ili "ne".`,
+            buttons: [
+              { text: '✅ Da', value: 'Da' },
+              { text: '❌ Ne', value: 'Ne' },
+            ],
+          })
+        } else {
+          // Traži sledeći slobodan
+          const nextSlot = await findNextAvailableSlot(date, state.serviceType, timeStr)
+          
+          if (nextSlot) {
+            state.proposedDate = nextSlot.dateISO
+            state.proposedTime = nextSlot.timeSlot
+            sessionState.set(sessionId, state)
+            
+            const serviceName = SERVICE_NAMES[state.serviceType]
+            const duration = SERVICE_DURATIONS[state.serviceType]
+            const endTime = formatTime(parseTime(nextSlot.timeSlot) + duration / 60)
+            
+            return NextResponse.json({
+              success: true,
+              response: `❌ Nažalost, termin ${formatDateSr(date)} u ${timeStr} je zauzet.\n\n💡 **Prvi slobodni termin:**\n📅 ${nextSlot.dayName}, ${nextSlot.dateStr}\n🕐 ${nextSlot.timeSlot} - ${endTime}\n\nDa li vam odgovara ovaj termin? Odgovorite sa "da" ili "ne".`,
+              buttons: [
+                { text: '✅ Da', value: 'Da' },
+                { text: '❌ Ne', value: 'Ne' },
+              ],
+            })
+          } else {
+            return NextResponse.json({
+              success: true,
+              response: '❌ Nažalost, nema slobodnih termina u narednih 14 dana za ovu uslugu. Molimo pokušajte kasnije.',
+            })
+          }
+        }
+      }
+      
+      if (!dayInfo && timeStr && !state.proposedDate) {
         return NextResponse.json({
           success: true,
           response: `Izabrali ste vreme ${timeStr}. Molimo recite i koji dan želite da dođete (npr. "ponedeljak", "sutra", "petak").`,
@@ -360,16 +431,48 @@ export async function POST(request: NextRequest) {
         
         if (name && phone) {
           try {
-            await createAppointment({
-              date: new Date(state.proposedDate),
+            const appointmentDate = new Date(state.proposedDate)
+            
+            // Prvo kreiraj termin
+            const appointment = await createAppointment({
+              date: appointmentDate,
               timeSlot: state.proposedTime,
-              serviceType: state.serviceType,
+              serviceType: state.serviceType!,
               patientName: name,
               patientPhone: phone,
             })
             
-            const serviceName = SERVICE_NAMES[state.serviceType]
-            const duration = SERVICE_DURATIONS[state.serviceType]
+            // Pokušaj da sačuvaš pacijenta u imeniku (ne prekidaj ako ne uspe)
+            try {
+              const existingPatient = await db.patient.findFirst({
+                where: { phone: phone },
+              })
+              
+              if (existingPatient) {
+                await db.patient.update({
+                  where: { id: existingPatient.id },
+                  data: {
+                    visitCount: { increment: 1 },
+                    lastVisit: appointmentDate,
+                  },
+                })
+              } else {
+                await db.patient.create({
+                  data: {
+                    name: name,
+                    phone: phone,
+                    visitCount: 1,
+                    lastVisit: appointmentDate,
+                  },
+                })
+              }
+            } catch (patientError) {
+              // Samo loguj grešku, ne prekidaj proces
+              console.error('Error saving patient to directory:', patientError)
+            }
+            
+            const serviceName = SERVICE_NAMES[state.serviceType!]
+            const duration = SERVICE_DURATIONS[state.serviceType!]
             const endTime = formatTime(parseTime(state.proposedTime) + duration / 60)
             const formattedDate = formatDateSr(new Date(state.proposedDate))
             

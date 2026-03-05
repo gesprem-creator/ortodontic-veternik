@@ -182,8 +182,12 @@ export async function getDentistAvailableSlots(date: Date, serviceType: ServiceT
     endHour = WORKING_HOURS.DENTIST_WEEKDAYS.end
   }
 
-  // Generiši slotove na 15 minuta (za fleksibilnost)
-  const allSlots = generateTimeSlots(startHour, endHour, 15)
+  // Za usluge od 60 minuta (popravka i lečenje), koristi samo satne slotove
+  // Za druge usluge koristi 15-minutne slotove
+  const slotInterval = duration >= 60 ? 60 : 15
+
+  // Generiši slotove
+  const allSlots = generateTimeSlots(startHour, endHour, slotInterval)
   const availableSlots: string[] = []
 
   for (const slot of allSlots) {
@@ -196,32 +200,6 @@ export async function getDentistAvailableSlots(date: Date, serviceType: ServiceT
     // Proveri da li je slot zauzet
     if (!isSlotBooked(slotTime, duration, appointments, 'DENTIST')) {
       availableSlots.push(slot)
-    }
-  }
-
-  // Primeni pravilo za poslednji termin
-  // Ako je 19:00 slobodan, ne nudi 19:30 i 20:00
-  // Ako je 19:00 zauzet, može da se ponudi kasnije
-  const lastHour = endHour - 1 // 19:00 sati
-
-  // Pronađi sve slotove pre 19:00
-  const beforeLastHour = availableSlots.filter(s => parseTime(s) < lastHour)
-  const afterLastHour = availableSlots.filter(s => parseTime(s) >= lastHour)
-
-  // Proveri da li ima slobodnih termina u 19:00 ili kasnije
-  if (afterLastHour.length > 0) {
-    // Proveri da li je 19:00 zauzet
-    const hasSlotAt19 = availableSlots.some(s => {
-      const t = parseTime(s)
-      return t >= 19 && t < 20
-    })
-
-    if (hasSlotAt19) {
-      // Ako postoji slobodan termin u 19. satu, prikaži sve
-      return [...beforeLastHour, ...afterLastHour]
-    } else {
-      // Ako je 19:00 zauzet, ponudi i kasnije termine
-      return [...beforeLastHour, ...afterLastHour]
     }
   }
 
