@@ -114,3 +114,20 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+// ==================== PATIENT DIRECTORY ====================
+
+model Patient {
+  id          String   @id @default(cuid())
+  name        String   // Ime i prezime
+  phone       String   // Broj telefona
+  email       String?  // Email (opcionalno)
+  notes       String?  // Napomene
+  visitCount  Int      @default(0)  // Broj poseta
+  lastVisit   DateTime? // Datum poslednje posete
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([name])
+  @@index([phone])
+}

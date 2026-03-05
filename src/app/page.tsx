@@ -29,7 +29,9 @@ import {
   LogIn,
   LogOut,
   Lock,
-  Mail
+  Mail,
+  Users,
+  Search
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -67,6 +69,18 @@ interface DayData {
   dayName: string
   dayOfWeek: number
   appointments: Appointment[]
+}
+
+// Patient interface for directory
+interface Patient {
+  id: string
+  name: string
+  phone: string
+  email: string | null
+  notes: string | null
+  visitCount: number
+  lastVisit: string | null
+  createdAt: string
 }
 
 // ==================== LOGIN COMPONENT ====================
@@ -400,9 +414,229 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
   )
 }
 
+// ==================== PATIENT DIRECTORY COMPONENT ====================
+function PatientDirectory() {
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [search, setSearch] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
+
+  const fetchPatients = async (searchTerm?: string) => {
+    setIsLoading(true)
+    try {
+      const url = searchTerm 
+        ? `/api/patients?search=${encodeURIComponent(searchTerm)}`
+        : '/api/patients'
+      const response = await fetch(url)
+      const data = await response.json()
+      if (data.success) {
+        setPatients(data.patients)
+      }
+    } catch {
+      toast.error('Greška prilikom dohvatanja pacijenata')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchPatients()
+  }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (search !== undefined) {
+        fetchPatients(search)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const handleDeletePatient = async (id: string) => {
+    if (!confirm('Da li ste sigurni da želite da obrišete ovog pacijenta?')) return
+    
+    try {
+      const response = await fetch(`/api/patients/${id}`, { method: 'DELETE' })
+      const data = await response.json()
+      if (data.success) {
+        toast.success('Pacijent obrisan')
+        setPatients(patients.filter(p => p.id !== id))
+        setSelectedPatient(null)
+      }
+    } catch {
+      toast.error('Greška prilikom brisanja')
+    }
+  }
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return '-'
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('sr-RS')
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-xl font-semibold">Imenik pacijenata</h2>
+          <p className="text-sm text-muted-foreground">
+            Ukupno pacijenata: {patients.length}
+          </p>
+        </div>
+      </div>
+
+      {/* Search */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Pretraga po imenu ili telefonu..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Patient List */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+        </div>
+      ) : patients.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <Users className="w-12 h-12 mb-4 opacity-50" />
+            <p>Nema pronađenih pacijenata</p>
+            {search && <p className="text-sm mt-2">Pokušajte sa drugačijom pretragom</p>}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <div className="divide-y max-h-[600px] overflow-y-auto">
+              {patients.map((patient) => (
+                <div 
+                  key={patient.id} 
+                  className="flex items-center justify-between p-4 hover:bg-muted/50 cursor-pointer"
+                  onClick={() => setSelectedPatient(selectedPatient?.id === patient.id ? null : patient)}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
+                      <span className="text-emerald-700 dark:text-emerald-300 font-medium">
+                        {patient.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="font-medium">{patient.name}</div>
+                      <div className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Phone className="w-3 h-3" />
+                        {patient.phone}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right text-sm">
+                      <div className="text-muted-foreground">Poseta: {patient.visitCount}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Poslednja: {formatDate(patient.lastVisit)}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeletePatient(patient.id)
+                      }}
+                      title="Obriši"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Patient Details Modal */}
+      {selectedPatient && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedPatient(null)}>
+          <Card className="w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <CardHeader>
+              <CardTitle>Detalji pacijenta</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
+                  <span className="text-2xl text-emerald-700 dark:text-emerald-300 font-medium">
+                    {selectedPatient.name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <div className="font-semibold text-lg">{selectedPatient.name}</div>
+                  <div className="text-muted-foreground">Pacijent</div>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex items-center gap-3">
+                  <Phone className="w-4 h-4 text-muted-foreground" />
+                  <span>{selectedPatient.phone}</span>
+                </div>
+                {selectedPatient.email && (
+                  <div className="flex items-center gap-3">
+                    <Mail className="w-4 h-4 text-muted-foreground" />
+                    <span>{selectedPatient.email}</span>
+                  </div>
+                )}
+                {selectedPatient.notes && (
+                  <div className="pt-2">
+                    <div className="text-sm text-muted-foreground mb-1">Napomene:</div>
+                    <div className="text-sm bg-muted p-2 rounded">{selectedPatient.notes}</div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-4 pt-4 border-t text-sm text-muted-foreground">
+                <div>Broj poseta: <strong>{selectedPatient.visitCount}</strong></div>
+                <div>Poslednja: <strong>{formatDate(selectedPatient.lastVisit)}</strong></div>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  className="flex-1" 
+                  onClick={() => setSelectedPatient(null)}
+                >
+                  Zatvori
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  className="flex-1" 
+                  onClick={() => handleDeletePatient(selectedPatient.id)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Obriši
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ==================== ADMIN COMPONENT - WITH TWO VIEWS ====================
 function AdminPanel() {
   const { data: session } = useSession()
+  const [adminTab, setAdminTab] = useState<'raspored' | 'imenik'>('raspored')
   const [weekData, setWeekData] = useState<DayData[]>([])
   const [startDate, setStartDate] = useState<Date>(() => {
     const d = new Date()
@@ -925,71 +1159,101 @@ function AdminPanel() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">Raspored termina</h2>
-          <p className="text-sm text-muted-foreground">
-            Prijavljen: {session?.user?.email}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {/* View Toggle */}
-          <div className="flex border rounded-md overflow-hidden">
-            <Button
-              variant={viewMode === 'table' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('table')}
-              className={viewMode === 'table' ? 'bg-emerald-500 hover:bg-emerald-600 rounded-none' : 'rounded-none'}
-            >
-              Tabela
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-              className={viewMode === 'list' ? 'bg-emerald-500 hover:bg-emerald-600 rounded-none' : 'rounded-none'}
-            >
-              Lista
-            </Button>
-          </div>
-          <Button variant="outline" onClick={() => signOut()}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Odjavi se
-          </Button>
-        </div>
+      {/* Admin Inner Tabs */}
+      <div className="flex border-b">
+        <button
+          onClick={() => setAdminTab('raspored')}
+          className={`px-6 py-3 font-medium transition-colors ${
+            adminTab === 'raspored' 
+              ? 'border-b-2 border-emerald-500 text-emerald-600' 
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Calendar className="w-4 h-4 inline mr-2" />
+          Raspored
+        </button>
+        <button
+          onClick={() => setAdminTab('imenik')}
+          className={`px-6 py-3 font-medium transition-colors ${
+            adminTab === 'imenik' 
+              ? 'border-b-2 border-emerald-500 text-emerald-600' 
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Users className="w-4 h-4 inline mr-2" />
+          Imenik
+        </button>
       </div>
 
-      {/* Navigacija kroz nedelje */}
-      <Card>
-        <CardContent className="flex items-center justify-between p-4">
-          <Button variant="outline" size="sm" onClick={() => {
-            const newDate = new Date(startDate)
-            newDate.setDate(newDate.getDate() - 7)
-            setStartDate(newDate)
-          }}>
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <div className="text-center">
-            <div className="font-medium">
-              {startDate.toLocaleDateString('sr-RS', { month: 'long', year: 'numeric' })}
+      {adminTab === 'imenik' ? (
+        <PatientDirectory />
+      ) : (
+        <>
+          {/* Header */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h2 className="text-xl font-semibold">Raspored termina</h2>
+              <p className="text-sm text-muted-foreground">
+                Prijavljen: {session?.user?.email}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              {/* View Toggle */}
+              <div className="flex border rounded-md overflow-hidden">
+                <Button
+                  variant={viewMode === 'table' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('table')}
+                  className={viewMode === 'table' ? 'bg-emerald-500 hover:bg-emerald-600 rounded-none' : 'rounded-none'}
+                >
+                  Tabela
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                  className={viewMode === 'list' ? 'bg-emerald-500 hover:bg-emerald-600 rounded-none' : 'rounded-none'}
+                >
+                  Lista
+                </Button>
+              </div>
+              <Button variant="outline" onClick={() => signOut()}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Odjavi se
+              </Button>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={() => {
-            const newDate = new Date(startDate)
-            newDate.setDate(newDate.getDate() + 7)
-            setStartDate(newDate)
-          }}>
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </CardContent>
-      </Card>
 
-      {/* Content */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
-        </div>
+          {/* Navigacija kroz nedelje */}
+          <Card>
+            <CardContent className="flex items-center justify-between p-4">
+              <Button variant="outline" size="sm" onClick={() => {
+                const newDate = new Date(startDate)
+                newDate.setDate(newDate.getDate() - 7)
+                setStartDate(newDate)
+              }}>
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <div className="text-center">
+                <div className="font-medium">
+                  {startDate.toLocaleDateString('sr-RS', { month: 'long', year: 'numeric' })}
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => {
+                const newDate = new Date(startDate)
+                newDate.setDate(newDate.getDate() + 7)
+                setStartDate(newDate)
+              }}>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Content */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+            </div>
       ) : (
         <>
           {viewMode === 'table' ? <TableView /> : <ListView />}
@@ -1103,6 +1367,8 @@ function AdminPanel() {
             </CardContent>
           </Card>
         </div>
+      )}
+        </>
       )}
     </div>
   )
