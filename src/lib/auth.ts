@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { compare } from 'bcryptjs'
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET || 'ortodontic-veternik-secret-key-2024-very-secure-random-string',
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -44,6 +45,34 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: '/',
+  },
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false,
+      },
+    },
+    callbackUrl: {
+      name: `next-auth.callback-url`,
+      options: {
+        sameSite: 'lax',
+        path: '/',
+        secure: false,
+      },
+    },
+    csrfToken: {
+      name: `next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false,
+      },
+    },
   },
   callbacks: {
     async jwt({ token, user }) {

@@ -84,20 +84,14 @@ function LoginForm() {
 
     setIsLoading(true)
     try {
-      const result = await signIn('credentials', {
+      // Koristi redirect umesto redirect: false za bolju kompatibilnost
+      await signIn('credentials', {
         email,
         password,
-        redirect: false,
+        callbackUrl: window.location.href,
       })
-
-      if (result?.error) {
-        toast.error('Pogrešan email ili lozinka')
-      } else {
-        toast.success('Uspešno ste se prijavili!')
-      }
     } catch {
       toast.error('Greška prilikom prijave')
-    } finally {
       setIsLoading(false)
     }
   }
@@ -517,9 +511,52 @@ function AdminPanel() {
     return weekData.find(d => d.dayOfWeek === dayOfWeek)
   }
 
-  const handleSlotClick = (date: string, time: string, dayOfWeek: number, isOrtho: boolean) => {
+  // Funkcija za računanje koliko slotova zauzima termin
+  const getSlotCount = (duration: number, isOrtho: boolean): number => {
+    if (isOrtho) {
+      // Ortodont: 15 min slotovi
+      return Math.ceil(duration / 15)
+    } else {
+      // Stomatolog: 30 min slotovi
+      return Math.ceil(duration / 30)
+    }
+  }
+
+  // Funkcija koja proverava da li je slot pokriven trajanjem prethodnog termina
+  const getCoveringAppointment = (dateStr: string, time: string, isOrtho: boolean): Appointment | null => {
+    const currentMinutes = parseInt(time.split(':')[0]) * 60 + parseInt(time.split(':')[1])
+    
+    for (const [key, apt] of appointmentMap.entries()) {
+      // Proveri da li je isti dan
+      const aptDateStr = key.split('_')[0]
+      if (aptDateStr !== dateStr) continue
+      
+      // Proveri da li je isti tip pruzioca (stomatolog vs ortodont)
+      const aptIsOrtho = apt.providerType === 'ORTHODONTIST'
+      if (aptIsOrtho !== isOrtho) continue
+      
+      const aptMinutes = parseInt(apt.timeSlot.split(':')[0]) * 60 + parseInt(apt.timeSlot.split(':')[1])
+      const aptEndMinutes = aptMinutes + apt.duration
+      
+      // Ako je trenutno vreme između početka i kraja termina (ali nije početak)
+      if (currentMinutes > aptMinutes && currentMinutes < aptEndMinutes) {
+        return apt
+      }
+    }
+    return null
+  }
+
+  const handleSlotClick = (date: string, time: string, dayOfWeek: number, isOrtho: boolean, coveredApt?: Appointment | null) => {
     const key = `${date}_${time}`
     const existingApt = appointmentMap.get(key)
+    
+    // Ako je slot pokriven drugim terminom, prikaži taj termin
+    if (coveredApt) {
+      if (confirm(`Termin: ${coveredApt.patientName} (${coveredApt.patientPhone})\nVreme: ${coveredApt.timeSlot} (${coveredApt.duration} min)\n\nDa li želite da obrišete termin?`)) {
+        handleDeleteAppointment(coveredApt.id)
+      }
+      return
+    }
     
     if (existingApt) {
       if (confirm(`Termin: ${existingApt.patientName} (${existingApt.patientPhone})\n\nDa li želite da obrišete termin?`)) {
@@ -661,100 +698,155 @@ function AdminPanel() {
   const days = ['Ponedeljak', 'Utorak', 'Sreda', 'Četvrtak', 'Petak']
 
   // ==================== TABLE VIEW ====================
-  const TableView = () => (
-    <Card className="overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse min-w-[900px]">
-          <thead>
-            <tr className="bg-muted">
-              <th className="border p-2 text-center w-20 bg-gray-100 dark:bg-gray-800">
-                <Clock className="w-4 h-4 mx-auto" />
-              </th>
-              {days.map((day, idx) => {
-                const dayData = getDayByIndex(idx)
-                const isFriday = idx === 4
-                return (
-                  <th key={day} className={`border p-2 text-center ${isFriday ? 'bg-orange-50 dark:bg-orange-950' : 'bg-emerald-50 dark:bg-emerald-950'}`}>
-                    <div className="font-semibold">{day}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {dayData?.dateStr || ''}
-                    </div>
-                    <div className="text-xs mt-1">
-                      {isFriday ? (
-                        <span className="text-purple-600">Stom: 14-18h • Ort: 18-21:30h</span>
-                      ) : (
-                        <span className="text-emerald-600">Stomatolog: 14-20h</span>
-                      )}
-                    </div>
-                  </th>
-                )
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {timeSlots.map((slot) => {
-              const { time, isOrtho } = slot
-              
-              // Proveri da li bar jedan dan prikazuje ovaj slot
-              let showRow = false
-              for (let i = 0; i < 5; i++) {
-                if (isValidSlot(time, isOrtho, i + 1)) {
-                  showRow = true
-                  break
-                }
-              }
-              if (!showRow) return null
-              
-              return (
-                <tr key={`${time}_${isOrtho}`} className={`hover:bg-muted/50 ${isOrtho ? 'bg-purple-50/30 dark:bg-purple-950/30' : ''}`}>
-                  <td className="border p-1 text-center text-sm font-mono bg-gray-50 dark:bg-gray-900 whitespace-nowrap">
-                    {time}
-                    {isOrtho && <span className="text-purple-500 text-xs ml-1">O</span>}
-                  </td>
-                  {[0, 1, 2, 3, 4].map((dayIdx) => {
-                    const dayOfWeek = dayIdx + 1
-                    const dayData = getDayByIndex(dayIdx)
-                    const dateStr = dayData?.dateStr || ''
-                    const isFriday = dayIdx === 4
-                    
-                    if (!isValidSlot(time, isOrtho, dayOfWeek)) {
-                      return (
-                        <td key={dayIdx} className="border p-0 bg-gray-200 dark:bg-gray-800">
-                          <div className="h-10"></div>
-                        </td>
-                      )
-                    }
-                    
-                    const key = `${dateStr}_${time}`
-                    const apt = appointmentMap.get(key)
-                    
-                    return (
-                      <td 
-                        key={dayIdx} 
-                        className={`border p-0 cursor-pointer transition-colors ${isFriday && isOrtho ? 'bg-purple-50/50 dark:bg-purple-950/50' : ''}`}
-                        onClick={() => handleSlotClick(dateStr, time, dayOfWeek, isOrtho)}
-                      >
-                        {apt ? (
-                          <div className={`h-10 p-1 flex flex-col justify-center ${serviceColors[apt.serviceType]}`}>
-                            <div className="text-xs font-medium truncate">{apt.patientName}</div>
-                            <div className="text-xs truncate">{apt.patientPhone}</div>
-                          </div>
+  const TableView = () => {
+    // Pratimo koje ćelije treba da se preskoče zbog rowspan
+    const skipCells = new Set<string>()
+    
+    return (
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse min-w-[900px]">
+            <thead>
+              <tr className="bg-muted">
+                <th className="border p-2 text-center w-20 bg-gray-100 dark:bg-gray-800">
+                  <Clock className="w-4 h-4 mx-auto" />
+                </th>
+                {days.map((day, idx) => {
+                  const dayData = getDayByIndex(idx)
+                  const isFriday = idx === 4
+                  return (
+                    <th key={day} className={`border p-2 text-center ${isFriday ? 'bg-orange-50 dark:bg-orange-950' : 'bg-emerald-50 dark:bg-emerald-950'}`}>
+                      <div className="font-semibold">{day}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {dayData?.dateStr || ''}
+                      </div>
+                      <div className="text-xs mt-1">
+                        {isFriday ? (
+                          <span className="text-purple-600">Stom: 14-18h • Ort: 18-21:30h</span>
                         ) : (
+                          <span className="text-emerald-600">Stomatolog: 14-20h</span>
+                        )}
+                      </div>
+                    </th>
+                  )
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {timeSlots.map((slot, slotIndex) => {
+                const { time, isOrtho } = slot
+                
+                // Proveri da li bar jedan dan prikazuje ovaj slot
+                let showRow = false
+                for (let i = 0; i < 5; i++) {
+                  if (isValidSlot(time, isOrtho, i + 1)) {
+                    showRow = true
+                    break
+                  }
+                }
+                if (!showRow) return null
+                
+                return (
+                  <tr key={`${time}_${isOrtho}`} className={`hover:bg-muted/50 ${isOrtho ? 'bg-purple-50/30 dark:bg-purple-950/30' : ''}`}>
+                    <td className="border p-1 text-center text-sm font-mono bg-gray-50 dark:bg-gray-900 whitespace-nowrap">
+                      {time}
+                      {isOrtho && <span className="text-purple-500 text-xs ml-1">O</span>}
+                    </td>
+                    {[0, 1, 2, 3, 4].map((dayIdx) => {
+                      const dayOfWeek = dayIdx + 1
+                      const dayData = getDayByIndex(dayIdx)
+                      const dateStr = dayData?.dateStr || ''
+                      const isFriday = dayIdx === 4
+                      const cellKey = `${dayIdx}_${time}_${isOrtho}`
+                      
+                      // Ako je ova ćelija obeležena za preskakanje, ne renderuj je
+                      if (skipCells.has(cellKey)) {
+                        return null
+                      }
+                      
+                      if (!isValidSlot(time, isOrtho, dayOfWeek)) {
+                        return (
+                          <td key={dayIdx} className="border p-0 bg-gray-200 dark:bg-gray-800">
+                            <div className="h-10"></div>
+                          </td>
+                        )
+                      }
+                      
+                      const key = `${dateStr}_${time}`
+                      const apt = appointmentMap.get(key)
+                      
+                      // Ako postoji termin, izračunaj rowspan
+                      if (apt) {
+                        const slotCount = getSlotCount(apt.duration, isOrtho)
+                        const rowSpan = slotCount
+                        
+                        // Obeleži naredne ćelije za preskakanje
+                        for (let i = 1; i < rowSpan; i++) {
+                          const nextSlot = timeSlots[slotIndex + i]
+                          if (nextSlot && nextSlot.isOrtho === isOrtho) {
+                            skipCells.add(`${dayIdx}_${nextSlot.time}_${isOrtho}`)
+                          }
+                        }
+                        
+                        const cellHeight = rowSpan * 40 // 40px po redu
+                        
+                        return (
+                          <td 
+                            key={dayIdx} 
+                            rowSpan={rowSpan}
+                            className={`border p-0 cursor-pointer transition-colors ${isFriday && isOrtho ? 'bg-purple-50/50 dark:bg-purple-950/50' : ''}`}
+                            onClick={() => handleSlotClick(dateStr, time, dayOfWeek, isOrtho)}
+                          >
+                            <div 
+                              className={`p-1 flex flex-col justify-center ${serviceColors[apt.serviceType]}`}
+                              style={{ minHeight: `${cellHeight}px` }}
+                            >
+                              <div className="text-xs font-medium truncate">{apt.patientName}</div>
+                              <div className="text-xs truncate">{apt.patientPhone}</div>
+                              <div className="text-xs opacity-75 mt-1">{apt.duration} min</div>
+                            </div>
+                          </td>
+                        )
+                      }
+                      
+                      // Proveri da li je slot pokriven drugim terminom
+                      const coveringApt = getCoveringAppointment(dateStr, time, isOrtho)
+                      if (coveringApt) {
+                        return (
+                          <td 
+                            key={dayIdx} 
+                            className={`border p-0 cursor-pointer ${serviceColors[coveringApt.serviceType]} opacity-60`}
+                            onClick={() => handleSlotClick(dateStr, time, dayOfWeek, isOrtho, coveringApt)}
+                          >
+                            <div className="h-10 flex items-center justify-center">
+                              <span className="text-xs opacity-75">zauzeto</span>
+                            </div>
+                          </td>
+                        )
+                      }
+                      
+                      // Prazan slot
+                      return (
+                        <td 
+                          key={dayIdx} 
+                          className={`border p-0 cursor-pointer transition-colors ${isFriday && isOrtho ? 'bg-purple-50/50 dark:bg-purple-950/50' : ''}`}
+                          onClick={() => handleSlotClick(dateStr, time, dayOfWeek, isOrtho)}
+                        >
                           <div className="h-10 flex items-center justify-center hover:bg-emerald-100 dark:hover:bg-emerald-900 transition-colors">
                             <Plus className="w-4 h-4 text-muted-foreground opacity-50 hover:opacity-100" />
                           </div>
-                        )}
-                      </td>
-                    )
-                  })}
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-    </Card>
-  )
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    )
+  }
 
   // ==================== LIST VIEW ====================
   const ListView = () => (
@@ -910,7 +1002,7 @@ function AdminPanel() {
           <CardContent className="flex flex-wrap gap-4 p-4">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-blue-500 rounded"></div>
-              <span className="text-sm">Popravka (30 min)</span>
+              <span className="text-sm">Popravka (60 min)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-purple-500 rounded"></div>
@@ -963,7 +1055,7 @@ function AdminPanel() {
                     </>
                   ) : (
                     <>
-                      <option value="REPAIR">Popravka zuba (30 min)</option>
+                      <option value="REPAIR">Popravka zuba (60 min)</option>
                       <option value="TREATMENT">Lečenje zuba (60 min)</option>
                     </>
                   )}

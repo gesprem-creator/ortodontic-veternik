@@ -15,8 +15,8 @@ export const WORKING_HOURS = {
 
 // Trajanje usluga u minutama
 export const SERVICE_DURATIONS: Record<ServiceType, number> = {
-  REPAIR: 30,        // Popravka - stomatolog
-  TREATMENT: 60,     // Lečenje - stomatolog
+  REPAIR: 60,        // Popravka - stomatolog (1 sat)
+  TREATMENT: 60,     // Lečenje - stomatolog (1 sat)
   ORTHO_CHECKUP: 15, // Ortodontska kontrola
   ORTHO_BONDING: 45, // Lepljenje fiksne
   ORTHO_REMOVAL: 45, // Skidanje fiksne
