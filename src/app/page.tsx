@@ -209,6 +209,7 @@ function ChatInterface() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const lastSendTimeRef = useRef<number>(0) // Za debouncing
 
   // Definiši početne dugmiće za izbor doktora
   const initialButtons: QuickButton[] = [
@@ -264,8 +265,21 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
 
   const sendMessage = async (messageText?: string) => {
     const textToSend = messageText || input.trim()
-    if (!textToSend || isLoading) return
+    if (!textToSend) return
+    
+    // DEBOUNCE - spreči duplo slanje u roku od 500ms
+    const now = Date.now()
+    if (now - lastSendTimeRef.current < 500) {
+      console.log('⛔ Debounced - too soon!')
+      return
+    }
+    lastSendTimeRef.current = now
+    
+    if (isLoading) return
 
+    // Postavi loading odmah
+    setIsLoading(true)
+    
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -275,25 +289,18 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
 
     setMessages(prev => [...prev, userMessage])
     setInput('')
-    setIsLoading(true)
 
     try {
-      // Čitaj stanje direktno iz ref (uvež ažurno) i localStorage kao backup
-      let currentState = sessionStateRef.current
-      
-      // Backup: pokušaj da pročitaš iz localStorage ako ref nije ažuriran
+      // Čitaj stanje DIREKTNO iz localStorage (najpouzdanije na mobilnom)
+      let currentState: ChatSessionState = {}
       try {
         const savedState = localStorage.getItem('chatSessionState')
         if (savedState) {
-          const parsed = JSON.parse(savedState)
-          // Ako localStorage ima proposedDate a ref nema, koristi localStorage
-          if (parsed.proposedDate && !currentState.proposedDate) {
-            currentState = parsed
-            console.log('📦 Using localStorage state as backup:', parsed)
-          }
+          currentState = JSON.parse(savedState)
+          console.log('📦 Read state from localStorage:', currentState)
         }
       } catch (e) {
-        console.log('⚠️ Could not read localStorage backup')
+        console.log('⚠️ Could not read localStorage')
       }
       
       console.log('📤 Sending message with state:', currentState)
@@ -323,7 +330,8 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
         if (data.state) {
           console.log('💾 Saving state:', data.state)
           setSessionState(data.state)
-          sessionStateRef.current = data.state // AŽURIRAJ I REF!
+          sessionStateRef.current = data.state
+          // Koristi ISTI key kao kod čitanja!
           localStorage.setItem('chatSessionState', JSON.stringify(data.state))
         }
         
@@ -476,12 +484,7 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          console.log('🖱️ onClick triggered for slot:', slot)
-                          sendMessage(slot)
-                        }}
-                        onTouchEnd={(e) => {
-                          e.preventDefault()
-                          console.log('👆 onTouchEnd triggered for slot:', slot)
+                          console.log('🖱️ Slot clicked:', slot)
                           sendMessage(slot)
                         }}
                         disabled={isLoading}
@@ -1658,7 +1661,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <span>© 2025 Ortodontic Veternik</span>
-              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">v3.7</span>
+              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">v3.8</span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <a href="tel:021821467" className="flex items-center gap-1 hover:text-emerald-600">
