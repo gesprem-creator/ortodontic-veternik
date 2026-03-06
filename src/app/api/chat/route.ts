@@ -52,7 +52,7 @@ function parseDayFromMessage(message: string): { dayOfWeek: number; isToday: boo
   return null
 }
 
-// Parsiranje vremena iz poruke - STROŽIJE
+// Parsiranje vremena iz poruke
 function parseTimeFromMessage(message: string): string | null {
   const trimmed = message.trim()
   
@@ -83,6 +83,16 @@ function parseTimeFromMessage(message: string): string | null {
   const timeWithSuffix = lower.match(/(?:u\s+)?(\d{1,2})(?:\s*(?:h|sata|sati|časova|casova))/)
   if (timeWithSuffix) {
     const hours = parseInt(timeWithSuffix[1])
+    
+    if (hours >= 0 && hours <= 23) {
+      return `${hours.toString().padStart(2, '0')}:00`
+    }
+  }
+  
+  // Format "u 14" - samo sati posle "u"
+  const timeWithU = lower.match(/\bu\s+(\d{1,2})(?:\s|$)/)
+  if (timeWithU) {
+    const hours = parseInt(timeWithU[1])
     
     if (hours >= 0 && hours <= 23) {
       return `${hours.toString().padStart(2, '0')}:00`
