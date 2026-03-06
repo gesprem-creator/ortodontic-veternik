@@ -265,6 +265,10 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
 
   const sendMessage = async (messageText?: string) => {
     const textToSend = messageText || input.trim()
+    
+    // DEBUG: Prvi alert - da li se funkcija poziva?
+    alert('1. sendMessage pozvan sa: ' + textToSend)
+    
     if (!textToSend) return
     
     // DEBOUNCE - spreči duplo slanje u roku od 500ms
