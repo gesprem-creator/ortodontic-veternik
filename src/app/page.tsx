@@ -1442,7 +1442,7 @@ export default function Home() {
               
               {/* Adresa */}
               <a 
-                href="https://www.google.com/maps/search/?api=1&query=Ive+Andrica+1+Veternik+Novi+Sad" 
+                href="https://www.google.com/maps?q=Ive+Andrica+1,+21205+Veternik" 
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-gray-600 hover:text-gray-800 hover:underline dark:text-gray-400 dark:hover:text-gray-200"
@@ -1517,7 +1517,7 @@ export default function Home() {
                 064/250-3304
               </a>
               <a 
-                href="https://www.google.com/maps/search/?api=1&query=Ive+Andrica+1+Veternik+Novi+Sad" 
+                href="https://www.google.com/maps?q=Ive+Andrica+1,+21205+Veternik" 
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 hover:text-emerald-600"
