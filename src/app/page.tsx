@@ -267,9 +267,6 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
     // OSIGURAJ da je string - nikad ne dozvoli event ili drugi objekat!
     const textToSend = (typeof messageText === 'string' ? messageText : input.trim()).toString().trim()
     
-    // DEBUG: Prvi alert - da li se funkcija poziva?
-    alert('1. sendMessage pozvan sa: ' + textToSend)
-    
     if (!textToSend) return
     
     // DEBOUNCE - spreči duplo slanje u roku od 500ms
@@ -318,9 +315,6 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
       
       console.log('📤 Sending message with state:', currentState)
       
-      // ALERT pre slanja - bez JSON.stringify za kružne reference
-      alert('Šaljem:\nmessage: ' + textToSend + '\nprovider: ' + (currentState.provider || 'nema') + '\nserviceType: ' + (currentState.serviceType || 'nema'))
-      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -346,9 +340,6 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
           setSessionState(data.state)
           sessionStateRef.current = data.state
           localStorage.setItem('chatSessionState', JSON.stringify(data.state))
-          
-          // ALERT za debug na mobilnom - bez kružnih referenci
-          alert('Server vratio:\nprovider: ' + (data.state.provider || 'nema') + '\nserviceType: ' + (data.state.serviceType || 'nema') + '\nproposedDate: ' + (data.state.proposedDate || 'nema') + '\nproposedTime: ' + (data.state.proposedTime || 'nema'))
         }
         
         // Parsiraj dugmiće iz odgovora ako postoje
@@ -406,8 +397,7 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
       } else {
         toast.error(data.error || 'Greška prilikom slanja poruke')
       }
-    } catch (error) {
-      alert('GREŠKA: ' + error)
+    } catch {
       toast.error('Greška prilikom komunikacije sa serverom')
     } finally {
       setIsLoading(false)
@@ -542,28 +532,6 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
       </ScrollArea>
 
       <div className="p-4 border-t">
-        {/* Debug panel - privremeno za testiranje */}
-        <div className="mb-2 p-2 bg-yellow-100 dark:bg-yellow-900 rounded text-xs font-mono overflow-x-auto">
-          <div className="font-bold">DEBUG:</div>
-          <div>provider: {sessionState.provider || 'nema'}</div>
-          <div>serviceType: {sessionState.serviceType || 'nema'}</div>
-          <div>proposedDate: {sessionState.proposedDate || 'nema'}</div>
-          <div>proposedTime: {sessionState.proposedTime || 'nema'}</div>
-          <div>confirmed: {sessionState.confirmed ? 'DA' : 'ne'}</div>
-          <Button 
-            variant="destructive" 
-            size="sm" 
-            className="h-6 text-xs px-2 mt-1"
-            onClick={() => {
-              localStorage.removeItem('chatSessionState')
-              setSessionState({})
-              sessionStateRef.current = {}
-              alert('State reset!')
-            }}
-          >
-            Reset
-          </Button>
-        </div>
         <div className="flex gap-2">
           <Input
             ref={inputRef}
