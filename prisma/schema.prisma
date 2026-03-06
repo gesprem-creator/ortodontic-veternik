@@ -1,0 +1,134 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Tipovi usluga
+enum ServiceType {
+  REPAIR        // Popravka - 60 min (stomatolog)
+  TREATMENT     // Lečenje - 1 sat (stomatolog)
+  ORTHO_CHECKUP // Ortodontska kontrola - 15 min (ortodont)
+  ORTHO_BONDING // Lepljenje fiksne - 45 min (ortodont)
+  ORTHO_REMOVAL // Skidanje fiksne - 45 min (ortodont)
+}
+
+// Tip pružaoca usluge
+enum ProviderType {
+  DENTIST      // Stomatolog (ponedeljak-petak, 14h-20h)
+  ORTHODONTIST // Ortodont (samo petak, 18h-21:15h)
+}
+
+// Status termina
+enum AppointmentStatus {
+  SCHEDULED   // Zakazan
+  COMPLETED   // Završen
+  CANCELLED   // Otkazan
+  NO_SHOW     // Nije se pojavio
+}
+
+model Appointment {
+  id           String          @id @default(cuid())
+  date         DateTime        // Datum termina (samo datum, vreme je u timeSlot)
+  timeSlot     String          // Vreme termina npr. "14:00", "14:30", "19:00"
+  duration     Int             // Trajanje u minutama (15, 30, 45, 60)
+  serviceType  ServiceType
+  providerType ProviderType
+  status       AppointmentStatus @default(SCHEDULED)
+  
+  // Podaci o pacijentu
+  patientName  String
+  patientPhone String
+  patientEmail String?
+  notes        String?         // Napomene
+  
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  
+  @@index([date])
+  @@index([date, providerType])
+  @@index([date, status])
+}
+
+// Chat sesije za čuvanje konteksta razgovora
+model ChatSession {
+  id           String   @id @default(cuid())
+  sessionId    String   @unique
+  messages     String   // JSON sa istorijom poruka
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ==================== AUTH MODELS ====================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  password      String    // Hash-ovana lozinka
+  role          String    @default("user")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ==================== PATIENT DIRECTORY ====================
+
+model Patient {
+  id          String   @id @default(cuid())
+  name        String   // Ime i prezime
+  phone       String   // Broj telefona
+  email       String?  // Email (opcionalno)
+  notes       String?  // Napomene
+  visitCount  Int      @default(0)  // Broj poseta
+  lastVisit   DateTime? // Datum poslednje posete
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([name])
+  @@index([phone])
+}
