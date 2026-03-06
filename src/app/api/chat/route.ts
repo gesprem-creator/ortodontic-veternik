@@ -192,9 +192,24 @@ export async function POST(request: NextRequest) {
     const state: SessionState = clientState || {}
     const lowerMessage = message.toLowerCase().trim()
     
+    // VALIDACIJA STANJA - očisti nevalidna stanja!
+    if (state.confirmed && (!state.proposedDate || !state.proposedTime)) {
+      console.log('⚠️ Invalid state: confirmed but missing date/time, resetting')
+      state.confirmed = undefined
+      state.proposedDate = undefined
+      state.proposedTime = undefined
+    }
+    
+    // Ako ima proposedDate ali nema serviceType, resetuj
+    if (state.proposedDate && !state.serviceType) {
+      console.log('⚠️ Invalid state: has date but no serviceType, resetting')
+      state.proposedDate = undefined
+      state.proposedTime = undefined
+    }
+    
     // DEBUG logovanje
     console.log('📩 Message:', message)
-    console.log('📊 Current state:', JSON.stringify(state))
+    console.log('📊 Current state (after validation):', JSON.stringify(state))
     console.log('🕐 Parsed time:', parseTimeFromMessage(message))
     console.log('📅 Parsed day:', parseDayFromMessage(message))
     
@@ -206,9 +221,13 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // 2. ODABIR DOKTORA
+    // 2. ODABIR DOKTORA - RESETUJ PRETHODNO STANJE!
     if (lowerMessage.includes('stomatolog')) {
       state.provider = 'DENTIST'
+      state.serviceType = undefined
+      state.proposedDate = undefined
+      state.proposedTime = undefined
+      state.confirmed = undefined
       return jsonResponse(
         'Izabrali ste stomatologa. Da li želite popravku ili lečenje zuba?',
         state
@@ -217,16 +236,23 @@ export async function POST(request: NextRequest) {
     
     if (lowerMessage.includes('ortodont')) {
       state.provider = 'ORTHODONTIST'
+      state.serviceType = undefined
+      state.proposedDate = undefined
+      state.proposedTime = undefined
+      state.confirmed = undefined
       return jsonResponse(
         'Izabrali ste ortodonta. Ortodont radi samo petkom od 18:00 do 21:30h. Da li želite kontrolu, lepljenje proteze ili skidanje proteze?',
         state
       )
     }
     
-    // 3. ODABIR USLUGE ZA STOMATOLOGA
+    // 3. ODABIR USLUGE ZA STOMATOLOGA - RESETUJ TERMIN!
     if (state.provider === 'DENTIST' && !state.serviceType) {
       if (lowerMessage.includes('popravk')) {
         state.serviceType = 'REPAIR'
+        state.proposedDate = undefined
+        state.proposedTime = undefined
+        state.confirmed = undefined
         return jsonResponse(
           'Izabrali ste popravku zuba (60 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-21:00\n• Petak: 14:00-18:00',
           state
@@ -234,6 +260,9 @@ export async function POST(request: NextRequest) {
       }
       if (lowerMessage.includes('lečenje') || lowerMessage.includes('lecenje')) {
         state.serviceType = 'TREATMENT'
+        state.proposedDate = undefined
+        state.proposedTime = undefined
+        state.confirmed = undefined
         return jsonResponse(
           'Izabrali ste lečenje zuba (60 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-21:00\n• Petak: 14:00-18:00',
           state
@@ -241,10 +270,13 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // 4. ODABIR USLUGE ZA ORTODONTA
+    // 4. ODABIR USLUGE ZA ORTODONTA - RESETUJ TERMIN!
     if (state.provider === 'ORTHODONTIST' && !state.serviceType) {
       if (lowerMessage.includes('kontrol')) {
         state.serviceType = 'ORTHO_CHECKUP'
+        state.proposedDate = undefined
+        state.proposedTime = undefined
+        state.confirmed = undefined
         return jsonResponse(
           'Izabrali ste kontrolu (15 minuta). Koji dan i koliko sati želite da zakazete?\n\nNapomena: Ortodont radi samo petkom od 18:00 do 21:30h.',
           state
@@ -252,6 +284,9 @@ export async function POST(request: NextRequest) {
       }
       if (lowerMessage.includes('lepljenje') || lowerMessage.includes('fiksna')) {
         state.serviceType = 'ORTHO_BONDING'
+        state.proposedDate = undefined
+        state.proposedTime = undefined
+        state.confirmed = undefined
         return jsonResponse(
           'Izabrali ste lepljenje fiksne proteze (45 minuta). Koji dan i koliko sati želite da zakazete?\n\nNapomena: Ortodont radi samo petkom od 18:00 do 21:30h.',
           state
@@ -259,6 +294,9 @@ export async function POST(request: NextRequest) {
       }
       if (lowerMessage.includes('skidanje')) {
         state.serviceType = 'ORTHO_REMOVAL'
+        state.proposedDate = undefined
+        state.proposedTime = undefined
+        state.confirmed = undefined
         return jsonResponse(
           'Izabrali ste skidanje fiksne proteze (45 minuta). Koji dan i koliko sati želite da zakazete?\n\nNapomena: Ortodont radi samo petkom od 18:00 do 21:30h.',
           state
