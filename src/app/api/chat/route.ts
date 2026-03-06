@@ -385,7 +385,9 @@ export async function POST(request: NextRequest) {
       
       // DRUGO: Ako su i dan i vreme uneti zajedno
       if (dayInfo && timeStr) {
+        console.log('📅 Processing day + time together:', dayInfo, timeStr)
         const date = getDayDate(dayInfo.dayOfWeek, dayInfo.isToday, dayInfo.isTomorrow)
+        console.log('📅 Calculated date:', date.toISOString())
         
         // Provera za ortodonta - mora biti petak
         if (state.provider === 'ORTHODONTIST' && date.getDay() !== 5) {
@@ -530,6 +532,7 @@ export async function POST(request: NextRequest) {
       console.log('🔍 Parsing name/phone:', { message, hasPhone, hasName })
       
       if (hasPhone && hasName) {
+        console.log('✅ Has phone and name, extracting...')
         // Izvuci telefon - pronađi sve cifre i spoji ih
         const allDigits = message.match(/\d/g)
         const phone = allDigits ? allDigits.join('') : ''
@@ -541,9 +544,10 @@ export async function POST(request: NextRequest) {
           .replace(/\s+/g, ' ')
           .trim()
         
-        console.log('📝 Extracted:', { name, phone })
+        console.log('📝 Extracted:', { name, phone, nameLength: name.length, phoneLength: phone.length })
         
         if (name && phone) {
+          console.log('✅ Name and phone valid, creating appointment...')
           try {
             // Normalizuj datum na podne da bi se izbegli problemi sa vremenskom zonom
             const appointmentDate = new Date(state.proposedDate)
