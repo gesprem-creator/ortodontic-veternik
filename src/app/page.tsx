@@ -514,7 +514,11 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
         {/* Debug panel - samo na mobilnom */}
         <div className="mb-2 p-2 bg-yellow-100 dark:bg-yellow-900 rounded text-xs font-mono overflow-x-auto sm:hidden">
           <div className="font-bold">DEBUG (mobilni):</div>
-          <div>State: {JSON.stringify(sessionStateRef.current)}</div>
+          <div>provider: {sessionState.provider || 'nema'}</div>
+          <div>serviceType: {sessionState.serviceType || 'nema'}</div>
+          <div>proposedDate: {sessionState.proposedDate || 'nema'}</div>
+          <div>proposedTime: {sessionState.proposedTime || 'nema'}</div>
+          <div>confirmed: {sessionState.confirmed ? 'DA' : 'ne'}</div>
         </div>
         <div className="flex gap-2">
           <Input
