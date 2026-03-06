@@ -1636,7 +1636,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <span>© 2025 Ortodontic Veternik</span>
-              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">v3.2</span>
+              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">v3.3</span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <a href="tel:021821467" className="flex items-center gap-1 hover:text-emerald-600">

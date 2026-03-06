@@ -477,13 +477,33 @@ export async function POST(request: NextRequest) {
     
     // 7. UNOS IMENA I TELEFONA
     if (state.proposedDate && state.proposedTime && state.serviceType && state.confirmed) {
-      const hasPhone = /\d{6,}/.test(message)
+      console.log('👤 Entering name/phone section')
+      console.log('📊 State check:', {
+        proposedDate: state.proposedDate,
+        proposedTime: state.proposedTime,
+        serviceType: state.serviceType,
+        confirmed: state.confirmed
+      })
+      
+      // Bolji regex za telefon -uhvata brojeve u raznim formatima
+      const hasPhone = /[0-9\s\-\/]{6,}/.test(message) || /\d{6,}/.test(message)
       const hasName = message.length > 3 && message.includes(' ')
       
+      console.log('🔍 Parsing name/phone:', { message, hasPhone, hasName })
+      
       if (hasPhone && hasName) {
-        const phoneMatch = message.match(/\d{6,}/)
-        const phone = phoneMatch ? phoneMatch[0] : ''
-        const name = message.replace(/\d+/g, '').replace(/[^\wšđčćžŠĐČĆŽ\s]/g, '').trim()
+        // Izvuci telefon - pronađi sve cifre i spoji ih
+        const allDigits = message.match(/\d/g)
+        const phone = allDigits ? allDigits.join('') : ''
+        
+        // Izvuci ime - ukloni sve cifre i nepotrebne karaktere
+        const name = message
+          .replace(/\d+/g, '')
+          .replace(/[^a-zA-ZšđčćžŠĐČĆŽ\s]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+        
+        console.log('📝 Extracted:', { name, phone })
         
         if (name && phone) {
           try {
