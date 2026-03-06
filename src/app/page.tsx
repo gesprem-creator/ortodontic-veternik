@@ -264,7 +264,8 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
   }, [messages, isLoading])
 
   const sendMessage = async (messageText?: string) => {
-    const textToSend = messageText || input.trim()
+    // OSIGURAJ da je string - nikad ne dozvoli event ili drugi objekat!
+    const textToSend = (typeof messageText === 'string' ? messageText : input.trim()).toString().trim()
     
     // DEBUG: Prvi alert - da li se funkcija poziva?
     alert('1. sendMessage pozvan sa: ' + textToSend)
@@ -415,7 +416,10 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
   }
 
   const handleButtonClick = (button: QuickButton) => {
-    sendMessage(button.value)
+    // OSIGURAJ da se šalje string vrednost, ne event
+    if (button && typeof button.value === 'string') {
+      sendMessage(button.value)
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -501,7 +505,10 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
                         size="sm"
                         onClick={() => {
                           console.log('🖱️ Slot clicked:', slot)
-                          sendMessage(slot)
+                          // OSIGURAJ da je string
+                          if (typeof slot === 'string') {
+                            sendMessage(slot)
+                          }
                         }}
                         disabled={isLoading}
                         className="rounded-lg border-emerald-300 hover:bg-emerald-50 hover:border-emerald-400 text-emerald-700 dark:border-emerald-600 dark:hover:bg-emerald-950 dark:text-emerald-300 font-mono touch-manipulation"
