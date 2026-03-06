@@ -337,8 +337,10 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
           console.log('💾 Saving state:', data.state)
           setSessionState(data.state)
           sessionStateRef.current = data.state
-          // Koristi ISTI key kao kod čitanja!
           localStorage.setItem('chatSessionState', JSON.stringify(data.state))
+          
+          // ALERT za debug na mobilnom
+          alert('Server vratio:\n' + JSON.stringify(data.state, null, 2))
         }
         
         // Parsiraj dugmiće iz odgovora ako postoje
