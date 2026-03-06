@@ -5,8 +5,8 @@ import { ServiceType, ProviderType, AppointmentStatus } from '@prisma/client'
 
 // Radno vreme
 export const WORKING_HOURS = {
-  // Ponedeljak - Četvrtak: Stomatolog 14:00 - 20:00
-  DENTIST_WEEKDAYS: { start: 14, end: 20 },
+  // Ponedeljak - Četvrtak: Stomatolog 14:00 - 21:00
+  DENTIST_WEEKDAYS: { start: 14, end: 21 },
   // Petak: Ortodont 18:00 - 21:30
   ORTHODONTIST_FRIDAY: { start: 18, end: 21.5 }, // 21:30 = 21.5
   // Petak: Stomatolog 14:00 - 18:00 (pre ortodonta)
@@ -177,7 +177,7 @@ export async function getDentistAvailableSlots(date: Date, serviceType: ServiceT
     startHour = WORKING_HOURS.DENTIST_FRIDAY.start
     endHour = WORKING_HOURS.DENTIST_FRIDAY.end
   } else {
-    // Ponedeljak-Četvrtak: stomatolog 14:00-20:00
+    // Ponedeljak-Četvrtak: stomatolog 14:00-21:00
     startHour = WORKING_HOURS.DENTIST_WEEKDAYS.start
     endHour = WORKING_HOURS.DENTIST_WEEKDAYS.end
   }

@@ -689,9 +689,9 @@ function AdminPanel() {
   const generateTimeSlots = () => {
     const slots: { time: string; isOrtho: boolean }[] = []
     
-    // Stomatolog: 14:00-20:00 (30 min slotovi) za Pon-Čet
+    // Stomatolog: 14:00-21:00 (30 min slotovi) za Pon-Čet
     // Stomatolog: 14:00-18:00 (30 min slotovi) za Petak
-    for (let h = 14; h < 20; h++) {
+    for (let h = 14; h < 21; h++) {
       slots.push({ time: `${h.toString().padStart(2, '0')}:00`, isOrtho: false })
       slots.push({ time: `${h.toString().padStart(2, '0')}:30`, isOrtho: false })
     }
@@ -948,9 +948,9 @@ function AdminPanel() {
         return min === 0 || min === 30
       }
     } else {
-      // Ponedeljak-Četvrtak: samo stomatolog 14:00-20:00
+      // Ponedeljak-Četvrtak: samo stomatolog 14:00-21:00
       if (isOrtho) return false
-      if (hour < 14 || hour >= 20) return false
+      if (hour < 14 || hour >= 21) return false
       return min === 0 || min === 30
     }
   }
@@ -984,7 +984,7 @@ function AdminPanel() {
                         {isFriday ? (
                           <span className="text-purple-600">Stom: 14-18h • Ort: 18-21:30h</span>
                         ) : (
-                          <span className="text-emerald-600">Stomatolog: 14-20h</span>
+                          <span className="text-emerald-600">Stomatolog: 14-21h</span>
                         )}
                       </div>
                     </th>
@@ -1134,7 +1134,7 @@ function AdminPanel() {
                       <Badge variant="outline" className="text-purple-600 border-purple-300">Ortodont: 18-21:30h</Badge>
                     </>
                   ) : (
-                    <Badge variant="outline" className="text-emerald-600 border-emerald-300">Stomatolog: 14-20h</Badge>
+                    <Badge variant="outline" className="text-emerald-600 border-emerald-300">Stomatolog: 14-21h</Badge>
                   )}
                 </div>
               </div>
@@ -1423,7 +1423,7 @@ export default function Home() {
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-emerald-600 border-emerald-300">
                 <Clock className="w-3 h-3 mr-1" />
-                Pon-Pet: 14-20h
+                Pon-Čet: 14-21h
               </Badge>
               <Badge variant="outline" className="text-purple-600 border-purple-300">
                 <Stethoscope className="w-3 h-3 mr-1" />

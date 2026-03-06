@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
         sessionState.set(sessionId, state)
         return NextResponse.json({
           success: true,
-          response: 'Izabrali ste popravku zuba (60 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-20:00\n• Petak: 14:00-18:00',
+          response: 'Izabrali ste popravku zuba (60 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-21:00\n• Petak: 14:00-18:00',
         })
       }
       if (lowerMessage.includes('lečenje') || lowerMessage.includes('lecenje')) {
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
         sessionState.set(sessionId, state)
         return NextResponse.json({
           success: true,
-          response: 'Izabrali ste lečenje zuba (60 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-20:00\n• Petak: 14:00-18:00',
+          response: 'Izabrali ste lečenje zuba (60 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-21:00\n• Petak: 14:00-18:00',
         })
       }
     }
@@ -524,7 +524,7 @@ export async function POST(request: NextRequest) {
         response: `🦷 **Stomatološka ordinacija "Ortodontic" - Veternik**
 
 📅 **Radno vreme:**
-• Stomatolog: Ponedeljak-Petak 14:00-20:00 (Petak do 18:00)
+• Stomatolog: Ponedeljak-Četvrtak 14:00-21:00 (Petak do 18:00)
 • Ortodont: Samo Petak 18:00-21:30
 
 📋 **Usluge:**
