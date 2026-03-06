@@ -236,6 +236,12 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
 
       const data = await response.json()
 
+      // Debug logovanje
+      console.log('📤 API Response:', data)
+      if (data.debug) {
+        console.log('🐛 Debug info:', data.debug)
+      }
+
       if (data.success) {
         // Parsiraj dugmiće iz odgovora ako postoje
         let buttons: QuickButton[] | undefined = undefined

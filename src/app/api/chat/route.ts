@@ -165,6 +165,25 @@ function getDateInfo(): string {
 
 // ==================== GLAVNA POST FUNKCIJA ====================
 
+// Helper funkcija za dodavanje debug info
+function addDebug(response: object, sessionId: string, state: SessionState, message: string) {
+  return {
+    ...response,
+    debug: {
+      sessionId: sessionId?.substring(0, 20),
+      state: {
+        provider: state.provider,
+        serviceType: state.serviceType,
+        proposedDate: state.proposedDate,
+        proposedTime: state.proposedTime,
+        confirmed: state.confirmed
+      },
+      parsedTime: parseTimeFromMessage(message),
+      parsedDay: parseDayFromMessage(message)
+    }
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { sessionId, message } = await request.json()
@@ -262,7 +281,13 @@ export async function POST(request: NextRequest) {
       const dayInfo = parseDayFromMessage(message)
       const timeStr = parseTimeFromMessage(message)
       
-      console.log('🔍 Checking date/time input:', { dayInfo, timeStr, proposedDate: state.proposedDate })
+      console.log('🔍 Checking date/time input:', { 
+        message, 
+        dayInfo, 
+        timeStr, 
+        proposedDate: state.proposedDate,
+        sessionId: sessionId?.substring(0, 20)
+      })
       
       // PRVO: Ako imamo samo vreme (klik na dugme) i imamo zapamćen datum
       if (!dayInfo && timeStr && state.proposedDate) {
@@ -298,6 +323,12 @@ export async function POST(request: NextRequest) {
               { text: '✅ Da', value: 'Da' },
               { text: '❌ Ne', value: 'Ne' },
             ],
+            debug: {
+              processed: 'TIME_CLICKED',
+              time: timeStr,
+              date: state.proposedDate,
+              sessionId: sessionId?.substring(0, 20)
+            }
           })
         } else {
           // Traži sledeći slobodan
@@ -414,11 +445,18 @@ export async function POST(request: NextRequest) {
           state.proposedDate = date.toISOString().split('T')[0]
           sessionState.set(sessionId, state)
           
+          console.log('💾 Saved date to state:', { sessionId: sessionId?.substring(0, 20), proposedDate: state.proposedDate })
+          
           // Vrati slotove kao posebno polje za klikabilne dugmiće
           return NextResponse.json({
             success: true,
             response: `📅 ${DAYS_SR[date.getDay()]}, ${formatDateSr(date)}\n\nSlobodni termini:\n${slots.map(s => `• ${s}`).join('\n')}\n\nIzaberite vreme kada želite da dođete.`,
             timeSlots: slots, // Dodaj slotove kao posebno polje za klikabilne dugmiće
+            debug: {
+              savedDate: state.proposedDate,
+              sessionId: sessionId?.substring(0, 20),
+              hint: 'Datum je sačuvan. Kliknite na vreme da nastavite.'
+            }
           })
         } else {
           return NextResponse.json({
@@ -612,6 +650,10 @@ Da biste zakazali termin, recite da li želite stomatologa ili ortodonta.`,
       response: `Nisam razumeo "${message}". 
 
 ${!state.provider ? 'Da li želite da zakažete kod stomatologa ili ortodonta?' : state.serviceType ? 'Molimo unesite dan i vreme (npr. "ponedeljak u 15:00" ili "sutra u 16:30").' : 'Molimo izaberite uslugu.'}`,
+      debug: {
+        state: { provider: state.provider, serviceType: state.serviceType, proposedDate: state.proposedDate },
+        parsed: { dayInfo: parseDayFromMessage(message), timeStr: parseTimeFromMessage(message) }
+      }
     })
     
   } catch (error) {
