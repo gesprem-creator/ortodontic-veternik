@@ -317,8 +317,8 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
       
       console.log('📤 Sending message with state:', currentState)
       
-      // ALERT pre slanja
-      alert('Šaljem:\n' + JSON.stringify({ message: textToSend, clientState: currentState }, null, 2))
+      // ALERT pre slanja - bez JSON.stringify za kružne reference
+      alert('Šaljem:\nmessage: ' + textToSend + '\nprovider: ' + (currentState.provider || 'nema') + '\nserviceType: ' + (currentState.serviceType || 'nema'))
       
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -346,8 +346,8 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
           sessionStateRef.current = data.state
           localStorage.setItem('chatSessionState', JSON.stringify(data.state))
           
-          // ALERT za debug na mobilnom
-          alert('Server vratio:\n' + JSON.stringify(data.state, null, 2))
+          // ALERT za debug na mobilnom - bez kružnih referenci
+          alert('Server vratio:\nprovider: ' + (data.state.provider || 'nema') + '\nserviceType: ' + (data.state.serviceType || 'nema') + '\nproposedDate: ' + (data.state.proposedDate || 'nema') + '\nproposedTime: ' + (data.state.proposedTime || 'nema'))
         }
         
         // Parsiraj dugmiće iz odgovora ako postoje
