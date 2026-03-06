@@ -313,6 +313,9 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
       
       console.log('📤 Sending message with state:', currentState)
       
+      // ALERT pre slanja
+      alert('Šaljem:\n' + JSON.stringify({ message: textToSend, clientState: currentState }, null, 2))
+      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -398,7 +401,8 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
       } else {
         toast.error(data.error || 'Greška prilikom slanja poruke')
       }
-    } catch {
+    } catch (error) {
+      alert('GREŠKA: ' + error)
       toast.error('Greška prilikom komunikacije sa serverom')
     } finally {
       setIsLoading(false)
