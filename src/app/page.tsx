@@ -170,11 +170,21 @@ function LoginForm() {
 }
 
 // ==================== CHAT COMPONENT ====================
+
+// Interface for session state - must match API
+interface ChatSessionState {
+  provider?: 'DENTIST' | 'ORTHODONTIST'
+  serviceType?: string
+  proposedDate?: string
+  proposedTime?: string
+  confirmed?: boolean
+}
+
 function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [sessionId, setSessionId] = useState<string>('')
+  const [sessionState, setSessionState] = useState<ChatSessionState>({})
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -186,16 +196,16 @@ function ChatInterface() {
   ]
 
   useEffect(() => {
-    // Generate session ID only on client - probaj da ga pročitaš iz localStorage prvo
-    const savedSessionId = localStorage.getItem('chatSessionId')
-    if (savedSessionId) {
-      console.log('🔄 Using saved session ID:', savedSessionId.substring(0, 20))
-      setSessionId(savedSessionId)
-    } else {
-      const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      console.log('🆕 Generated new session ID:', newSessionId.substring(0, 20))
-      localStorage.setItem('chatSessionId', newSessionId)
-      setSessionId(newSessionId)
+    // Load session state from localStorage
+    const savedState = localStorage.getItem('chatSessionState')
+    if (savedState) {
+      try {
+        const parsed = JSON.parse(savedState)
+        console.log('🔄 Loaded saved session state:', parsed)
+        setSessionState(parsed)
+      } catch {
+        console.log('⚠️ Could not parse saved session state')
+      }
     }
     
     setMessages([
@@ -220,7 +230,7 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
 
   const sendMessage = async (messageText?: string) => {
     const textToSend = messageText || input.trim()
-    if (!textToSend || isLoading || !sessionId) return
+    if (!textToSend || isLoading) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -234,24 +244,32 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
     setIsLoading(true)
 
     try {
+      // Šalji trenutno stanje sesije sa zahtevom
+      console.log('📤 Sending message with state:', sessionState)
+      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sessionId,
           message: textToSend,
+          clientState: sessionState, // KLJUČNO: šaljemo stanje!
         }),
       })
 
       const data = await response.json()
 
       // Debug logovanje
-      console.log('📤 API Response:', data)
-      if (data.debug) {
-        console.log('🐛 Debug info:', data.debug)
-      }
+      console.log('📥 API Response:', data)
+      console.log('📊 New state:', data.state)
 
       if (data.success) {
+        // SAČUVAJ novo stanje iz odgovora!
+        if (data.state) {
+          console.log('💾 Saving state to localStorage:', data.state)
+          setSessionState(data.state)
+          localStorage.setItem('chatSessionState', JSON.stringify(data.state))
+        }
+        
         // Parsiraj dugmiće iz odgovora ako postoje
         let buttons: QuickButton[] | undefined = undefined
         let timeSlots: string[] | undefined = undefined
@@ -1566,7 +1584,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <span>© 2025 Ortodontic Veternik</span>
-              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">v2.0</span>
+              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">v3.0</span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <a href="tel:021821467" className="flex items-center gap-1 hover:text-emerald-600">

@@ -4,14 +4,12 @@ import {
   createAppointment,
   isSlotAvailable,
   findNextAvailableSlot,
-  findAvailableDays,
   getAvailableSlots,
   SERVICE_NAMES,
   SERVICE_DURATIONS,
   formatTime,
   parseTime,
   formatDateSr,
-  SERVICE_PROVIDERS,
 } from '@/lib/appointments'
 import { db } from '@/lib/db'
 
@@ -125,7 +123,7 @@ function getDayDate(dayOfWeek: number, isToday: boolean, isTomorrow: boolean): D
 
 // ==================== STANJE SESIJE ====================
 
-interface SessionState {
+export interface SessionState {
   provider?: 'DENTIST' | 'ORTHODONTIST'
   serviceType?: ServiceType
   proposedDate?: string
@@ -133,14 +131,7 @@ interface SessionState {
   confirmed?: boolean
 }
 
-const sessionState = new Map<string, SessionState>()
-
 // ==================== POMOĆNE FUNKCIJE ZA ODGOVORE ====================
-
-function getTodayDateStr(): string {
-  const today = new Date()
-  return formatDateSr(today)
-}
 
 function getDateInfo(): string {
   const today = new Date()
@@ -163,36 +154,35 @@ function getDateInfo(): string {
   return info
 }
 
-// ==================== GLAVNA POST FUNKCIJA ====================
-
-// Helper funkcija za dodavanje debug info
-function addDebug(response: object, sessionId: string, state: SessionState, message: string) {
-  return {
-    ...response,
-    debug: {
-      sessionId: sessionId?.substring(0, 20),
-      state: {
-        provider: state.provider,
-        serviceType: state.serviceType,
-        proposedDate: state.proposedDate,
-        proposedTime: state.proposedTime,
-        confirmed: state.confirmed
-      },
-      parsedTime: parseTimeFromMessage(message),
-      parsedDay: parseDayFromMessage(message)
-    }
-  }
+// Pomoćna funkcija za kreiranje odgovora sa stanjem
+function jsonResponse(
+  response: string, 
+  state: SessionState, 
+  options: {
+    buttons?: { text: string; value: string }[],
+    timeSlots?: string[]
+  } = {}
+) {
+  return NextResponse.json({
+    success: true,
+    response,
+    state, // UVEK vrati stanje klijentu!
+    ...options
+  })
 }
+
+// ==================== GLAVNA POST FUNKCIJA ====================
 
 export async function POST(request: NextRequest) {
   try {
-    const { sessionId, message } = await request.json()
+    const { message, clientState } = await request.json()
     
     if (!message) {
       return NextResponse.json({ error: 'Poruka je obavezna' }, { status: 400 })
     }
     
-    const state = sessionState.get(sessionId) || {}
+    // Koristi stanje iz zahteva - OVO JE KLJUČNO!
+    const state: SessionState = clientState || {}
     const lowerMessage = message.toLowerCase().trim()
     
     // DEBUG logovanje
@@ -203,48 +193,44 @@ export async function POST(request: NextRequest) {
     
     // 1. POZDRAV / POCETAK
     if (lowerMessage.includes('zdravo') || lowerMessage.includes('pozdrav') || lowerMessage.includes('ćao') || lowerMessage.includes('cao') || lowerMessage.includes('dobar dan') || lowerMessage.includes('dobro jutro') || lowerMessage.includes('dobro vece')) {
-      return NextResponse.json({
-        success: true,
-        response: `🦷 Dobar dan! Ja sam AI asistent stomatološke ordinacije "Ortodontic" iz Veternika.\n\n${getDateInfo()}\nDa li želite da zakažete kod stomatologa ili ortodonta?\n\n**Izaberite jednu od opcija:**`,
-      })
+      return jsonResponse(
+        `🦷 Dobar dan! Ja sam AI asistent stomatološke ordinacije "Ortodontic" iz Veternika.\n\n${getDateInfo()}\nDa li želite da zakažete kod stomatologa ili ortodonta?\n\n**Izaberite jednu od opcija:**`,
+        state
+      )
     }
     
     // 2. ODABIR DOKTORA
     if (lowerMessage.includes('stomatolog')) {
       state.provider = 'DENTIST'
-      sessionState.set(sessionId, state)
-      return NextResponse.json({
-        success: true,
-        response: 'Izabrali ste stomatologa. Da li želite popravku ili lečenje zuba?',
-      })
+      return jsonResponse(
+        'Izabrali ste stomatologa. Da li želite popravku ili lečenje zuba?',
+        state
+      )
     }
     
     if (lowerMessage.includes('ortodont')) {
       state.provider = 'ORTHODONTIST'
-      sessionState.set(sessionId, state)
-      return NextResponse.json({
-        success: true,
-        response: 'Izabrali ste ortodonta. Ortodont radi samo petkom od 18:00 do 21:30h. Da li želite kontrolu, lepljenje proteze ili skidanje proteze?',
-      })
+      return jsonResponse(
+        'Izabrali ste ortodonta. Ortodont radi samo petkom od 18:00 do 21:30h. Da li želite kontrolu, lepljenje proteze ili skidanje proteze?',
+        state
+      )
     }
     
     // 3. ODABIR USLUGE ZA STOMATOLOGA
     if (state.provider === 'DENTIST' && !state.serviceType) {
       if (lowerMessage.includes('popravk')) {
         state.serviceType = 'REPAIR'
-        sessionState.set(sessionId, state)
-        return NextResponse.json({
-          success: true,
-          response: 'Izabrali ste popravku zuba (60 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-21:00\n• Petak: 14:00-18:00',
-        })
+        return jsonResponse(
+          'Izabrali ste popravku zuba (60 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-21:00\n• Petak: 14:00-18:00',
+          state
+        )
       }
       if (lowerMessage.includes('lečenje') || lowerMessage.includes('lecenje')) {
         state.serviceType = 'TREATMENT'
-        sessionState.set(sessionId, state)
-        return NextResponse.json({
-          success: true,
-          response: 'Izabrali ste lečenje zuba (60 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-21:00\n• Petak: 14:00-18:00',
-        })
+        return jsonResponse(
+          'Izabrali ste lečenje zuba (60 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-21:00\n• Petak: 14:00-18:00',
+          state
+        )
       }
     }
     
@@ -252,27 +238,24 @@ export async function POST(request: NextRequest) {
     if (state.provider === 'ORTHODONTIST' && !state.serviceType) {
       if (lowerMessage.includes('kontrol')) {
         state.serviceType = 'ORTHO_CHECKUP'
-        sessionState.set(sessionId, state)
-        return NextResponse.json({
-          success: true,
-          response: 'Izabrali ste kontrolu (15 minuta). Koji dan i koliko sati želite da zakazete?\n\nNapomena: Ortodont radi samo petkom od 18:00 do 21:30h.',
-        })
+        return jsonResponse(
+          'Izabrali ste kontrolu (15 minuta). Koji dan i koliko sati želite da zakazete?\n\nNapomena: Ortodont radi samo petkom od 18:00 do 21:30h.',
+          state
+        )
       }
       if (lowerMessage.includes('lepljenje') || lowerMessage.includes('fiksna')) {
         state.serviceType = 'ORTHO_BONDING'
-        sessionState.set(sessionId, state)
-        return NextResponse.json({
-          success: true,
-          response: 'Izabrali ste lepljenje fiksne proteze (45 minuta). Koji dan i koliko sati želite da zakazete?\n\nNapomena: Ortodont radi samo petkom od 18:00 do 21:30h.',
-        })
+        return jsonResponse(
+          'Izabrali ste lepljenje fiksne proteze (45 minuta). Koji dan i koliko sati želite da zakazete?\n\nNapomena: Ortodont radi samo petkom od 18:00 do 21:30h.',
+          state
+        )
       }
       if (lowerMessage.includes('skidanje')) {
         state.serviceType = 'ORTHO_REMOVAL'
-        sessionState.set(sessionId, state)
-        return NextResponse.json({
-          success: true,
-          response: 'Izabrali ste skidanje fiksne proteze (45 minuta). Koji dan i koliko sati želite da zakazete?\n\nNapomena: Ortodont radi samo petkom od 18:00 do 21:30h.',
-        })
+        return jsonResponse(
+          'Izabrali ste skidanje fiksne proteze (45 minuta). Koji dan i koliko sati želite da zakazete?\n\nNapomena: Ortodont radi samo petkom od 18:00 do 21:30h.',
+          state
+        )
       }
     }
     
@@ -286,7 +269,6 @@ export async function POST(request: NextRequest) {
         dayInfo, 
         timeStr, 
         proposedDate: state.proposedDate,
-        sessionId: sessionId?.substring(0, 20)
       })
       
       // PRVO: Ako imamo samo vreme (klik na dugme) i imamo zapamćen datum
@@ -298,10 +280,10 @@ export async function POST(request: NextRequest) {
         if (state.provider === 'DENTIST' && date.getDay() === 5) {
           const requestedHour = parseInt(timeStr.split(':')[0])
           if (requestedHour >= 18) {
-            return NextResponse.json({
-              success: true,
-              response: '❌ U tim terminima radi ortodont. Izaberite neki raniji termin u petak, npr. 17:00 ili ranije.\n\nRadno vreme stomatologa petkom je od 14:00 do 18:00.',
-            })
+            return jsonResponse(
+              '❌ U tim terminima radi ortodont. Izaberite neki raniji termin u petak, npr. 17:00 ili ranije.\n\nRadno vreme stomatologa petkom je od 14:00 do 18:00.',
+              state
+            )
           }
         }
         
@@ -310,20 +292,21 @@ export async function POST(request: NextRequest) {
         
         if (result.available) {
           state.proposedTime = timeStr
-          sessionState.set(sessionId, state)
           
           const serviceName = SERVICE_NAMES[state.serviceType]
           const duration = SERVICE_DURATIONS[state.serviceType]
           const endTime = formatTime(parseTime(timeStr) + duration / 60)
           
-          return NextResponse.json({
-            success: true,
-            response: `✅ Termin je slobodan!\n\n📅 **${serviceName}**\n🗓️ ${DAYS_SR[date.getDay()]}, ${formatDateSr(date)}\n🕐 ${timeStr} - ${endTime} (${duration} min)\n\nDa li vam odgovara ovaj termin? Odgovorite sa "da" ili "ne".`,
-            buttons: [
-              { text: '✅ Da', value: 'Da' },
-              { text: '❌ Ne', value: 'Ne' },
-            ]
-          })
+          return jsonResponse(
+            `✅ Termin je slobodan!\n\n📅 **${serviceName}**\n🗓️ ${DAYS_SR[date.getDay()]}, ${formatDateSr(date)}\n🕐 ${timeStr} - ${endTime} (${duration} min)\n\nDa li vam odgovara ovaj termin? Odgovorite sa "da" ili "ne".`,
+            state,
+            {
+              buttons: [
+                { text: '✅ Da', value: 'Da' },
+                { text: '❌ Ne', value: 'Ne' },
+              ]
+            }
+          )
         } else {
           // Traži sledeći slobodan
           const nextSlot = await findNextAvailableSlot(date, state.serviceType, timeStr)
@@ -331,25 +314,26 @@ export async function POST(request: NextRequest) {
           if (nextSlot) {
             state.proposedDate = nextSlot.dateISO
             state.proposedTime = nextSlot.timeSlot
-            sessionState.set(sessionId, state)
             
             const serviceName = SERVICE_NAMES[state.serviceType]
             const duration = SERVICE_DURATIONS[state.serviceType]
             const endTime = formatTime(parseTime(nextSlot.timeSlot) + duration / 60)
             
-            return NextResponse.json({
-              success: true,
-              response: `❌ Nažalost, termin u ${timeStr} je zauzet.\n\n💡 **Prvi slobodni termin:**\n📅 ${nextSlot.dayName}, ${nextSlot.dateStr}\n🕐 ${nextSlot.timeSlot} - ${endTime}\n\nDa li vam odgovara ovaj termin? Odgovorite sa "da" ili "ne".`,
-              buttons: [
-                { text: '✅ Da', value: 'Da' },
-                { text: '❌ Ne', value: 'Ne' },
-              ],
-            })
+            return jsonResponse(
+              `❌ Nažalost, termin u ${timeStr} je zauzet.\n\n💡 **Prvi slobodni termin:**\n📅 ${nextSlot.dayName}, ${nextSlot.dateStr}\n🕐 ${nextSlot.timeSlot} - ${endTime}\n\nDa li vam odgovara ovaj termin? Odgovorite sa "da" ili "ne".`,
+              state,
+              {
+                buttons: [
+                  { text: '✅ Da', value: 'Da' },
+                  { text: '❌ Ne', value: 'Ne' },
+                ]
+              }
+            )
           } else {
-            return NextResponse.json({
-              success: true,
-              response: '❌ Nažalost, nema slobodnih termina u narednih 14 dana za ovu uslugu. Molimo pokušajte kasnije.',
-            })
+            return jsonResponse(
+              '❌ Nažalost, nema slobodnih termina u narednih 14 dana za ovu uslugu. Molimo pokušajte kasnije.',
+              state
+            )
           }
         }
       }
@@ -360,20 +344,20 @@ export async function POST(request: NextRequest) {
         
         // Provera za ortodonta - mora biti petak
         if (state.provider === 'ORTHODONTIST' && date.getDay() !== 5) {
-          return NextResponse.json({
-            success: true,
-            response: '❌ Ortodont radi samo petkom od 18:00 do 21:30h.\n\nDa li želite da zakažete za petak? Recite "petak" i vreme kada želite da dođete.',
-          })
+          return jsonResponse(
+            '❌ Ortodont radi samo petkom od 18:00 do 21:30h.\n\nDa li želite da zakažete za petak? Recite "petak" i vreme kada želite da dođete.',
+            state
+          )
         }
         
         // Provera za stomatologa - petak posle 18h ne radi (tu je ortodont)
         if (state.provider === 'DENTIST' && date.getDay() === 5) {
           const requestedHour = parseInt(timeStr.split(':')[0])
           if (requestedHour >= 18) {
-            return NextResponse.json({
-              success: true,
-              response: '❌ U tim terminima radi ortodont. Izaberite neki raniji termin u petak, npr. 17:00 ili ranije.\n\nRadno vreme stomatologa petkom je od 14:00 do 18:00.',
-            })
+            return jsonResponse(
+              '❌ U tim terminima radi ortodont. Izaberite neki raniji termin u petak, npr. 17:00 ili ranije.\n\nRadno vreme stomatologa petkom je od 14:00 do 18:00.',
+              state
+            )
           }
         }
         
@@ -383,16 +367,15 @@ export async function POST(request: NextRequest) {
         if (result.available) {
           state.proposedDate = date.toISOString().split('T')[0]
           state.proposedTime = timeStr
-          sessionState.set(sessionId, state)
           
           const serviceName = SERVICE_NAMES[state.serviceType]
           const duration = SERVICE_DURATIONS[state.serviceType]
           const endTime = formatTime(parseTime(timeStr) + duration / 60)
           
-          return NextResponse.json({
-            success: true,
-            response: `✅ Termin je slobodan!\n\n📅 **${serviceName}**\n🗓️ ${DAYS_SR[date.getDay()]}, ${formatDateSr(date)}\n🕐 ${timeStr} - ${endTime} (${duration} min)\n\nDa li vam odgovara ovaj termin? Odgovorite sa "da" ili "ne".`,
-          })
+          return jsonResponse(
+            `✅ Termin je slobodan!\n\n📅 **${serviceName}**\n🗓️ ${DAYS_SR[date.getDay()]}, ${formatDateSr(date)}\n🕐 ${timeStr} - ${endTime} (${duration} min)\n\nDa li vam odgovara ovaj termin? Odgovorite sa "da" ili "ne".`,
+            state
+          )
         } else {
           // Traži sledeći slobodan
           const nextSlot = await findNextAvailableSlot(date, state.serviceType, timeStr)
@@ -400,21 +383,20 @@ export async function POST(request: NextRequest) {
           if (nextSlot) {
             state.proposedDate = nextSlot.dateISO
             state.proposedTime = nextSlot.timeSlot
-            sessionState.set(sessionId, state)
             
             const serviceName = SERVICE_NAMES[state.serviceType]
             const duration = SERVICE_DURATIONS[state.serviceType]
             const endTime = formatTime(parseTime(nextSlot.timeSlot) + duration / 60)
             
-            return NextResponse.json({
-              success: true,
-              response: `❌ Nažalost, termin ${formatDateSr(date)} u ${timeStr} je zauzet.\n\n💡 **Prvi slobodni termin:**\n📅 ${nextSlot.dayName}, ${nextSlot.dateStr}\n🕐 ${nextSlot.timeSlot} - ${endTime}\n\nDa li vam odgovara ovaj termin? Odgovorite sa "da" ili "ne".`,
-            })
+            return jsonResponse(
+              `❌ Nažalost, termin ${formatDateSr(date)} u ${timeStr} je zauzet.\n\n💡 **Prvi slobodni termin:**\n📅 ${nextSlot.dayName}, ${nextSlot.dateStr}\n🕐 ${nextSlot.timeSlot} - ${endTime}\n\nDa li vam odgovara ovaj termin? Odgovorite sa "da" ili "ne".`,
+              state
+            )
           } else {
-            return NextResponse.json({
-              success: true,
-              response: '❌ Nažalost, nema slobodnih termina u narednih 14 dana za ovu uslugu. Molimo pokušajte kasnije.',
-            })
+            return jsonResponse(
+              '❌ Nažalost, nema slobodnih termina u narednih 14 dana za ovu uslugu. Molimo pokušajte kasnije.',
+              state
+            )
           }
         }
       }
@@ -425,10 +407,10 @@ export async function POST(request: NextRequest) {
         
         // Provera za ortodonta
         if (state.provider === 'ORTHODONTIST' && date.getDay() !== 5) {
-          return NextResponse.json({
-            success: true,
-            response: '❌ Ortodont radi samo petkom od 18:00 do 21:30h.\n\nDa li želite da zakažete za petak?',
-          })
+          return jsonResponse(
+            '❌ Ortodont radi samo petkom od 18:00 do 21:30h.\n\nDa li želite da zakažete za petak?',
+            state
+          )
         }
         
         // Prikaži slobodne termine za taj dan
@@ -437,30 +419,29 @@ export async function POST(request: NextRequest) {
         if (slots.length > 0) {
           // ZAPAMTI datum u state da bi kad korisnik klikne na vreme znao koji je dan
           state.proposedDate = date.toISOString().split('T')[0]
-          sessionState.set(sessionId, state)
           
-          console.log('💾 Saved date to state:', { sessionId: sessionId?.substring(0, 20), proposedDate: state.proposedDate })
+          console.log('💾 Saved date to state:', { proposedDate: state.proposedDate })
           
           // Vrati slotove kao posebno polje za klikabilne dugmiće
-          return NextResponse.json({
-            success: true,
-            response: `📅 ${DAYS_SR[date.getDay()]}, ${formatDateSr(date)}\n\nSlobodni termini:\n${slots.map(s => `• ${s}`).join('\n')}\n\nIzaberite vreme kada želite da dođete.`,
-            timeSlots: slots
-          })
+          return jsonResponse(
+            `📅 ${DAYS_SR[date.getDay()]}, ${formatDateSr(date)}\n\nSlobodni termini:\n${slots.map(s => `• ${s}`).join('\n')}\n\nIzaberite vreme kada želite da dođete.`,
+            state,
+            { timeSlots: slots }
+          )
         } else {
-          return NextResponse.json({
-            success: true,
-            response: `❌ Nažalost, nema slobodnih termina za ${DAYS_SR[date.getDay()]}, ${formatDateSr(date)}. Izaberite drugi dan.`,
-          })
+          return jsonResponse(
+            `❌ Nažalost, nema slobodnih termina za ${DAYS_SR[date.getDay()]}, ${formatDateSr(date)}. Izaberite drugi dan.`,
+            state
+          )
         }
       }
       
       // TREĆE: Ako je samo vreme a NEMAMO zapamćen datum
       if (!dayInfo && timeStr && !state.proposedDate) {
-        return NextResponse.json({
-          success: true,
-          response: `Izabrali ste vreme ${timeStr}. Molimo recite i koji dan želite da dođete (npr. "ponedeljak", "sutra", "petak").`,
-        })
+        return jsonResponse(
+          `Izabrali ste vreme ${timeStr}. Molimo recite i koji dan želite da dođete (npr. "ponedeljak", "sutra", "petak").`,
+          state
+        )
       }
     }
     
@@ -468,24 +449,22 @@ export async function POST(request: NextRequest) {
     if (state.proposedDate && state.proposedTime && state.serviceType && !state.confirmed) {
       if (lowerMessage.includes('da') || lowerMessage.includes('odgovara') || lowerMessage.includes('potvrđujem') || lowerMessage.includes('potvrdjujem') || lowerMessage.includes('u redu') || lowerMessage.includes('može') || lowerMessage.includes('moze')) {
         state.confirmed = true
-        sessionState.set(sessionId, state)
         
-        return NextResponse.json({
-          success: true,
-          response: 'Vaše ime i prezime i broj telefona?',
-        })
+        return jsonResponse(
+          'Vaše ime i prezime i broj telefona?',
+          state
+        )
       }
       
       if (lowerMessage.includes('ne') || lowerMessage.includes('ne odgovara') || lowerMessage.includes('drugi')) {
         // Resetuj predloženi termin
         state.proposedDate = undefined
         state.proposedTime = undefined
-        sessionState.set(sessionId, state)
         
-        return NextResponse.json({
-          success: true,
-          response: 'U redu. Koji drugi dan i vreme želite da zakazete?',
-        })
+        return jsonResponse(
+          'U redu. Koji drugi dan i vreme želite da zakazete?',
+          state
+        )
       }
     }
     
@@ -505,7 +484,6 @@ export async function POST(request: NextRequest) {
             const appointmentDate = new Date(state.proposedDate)
             appointmentDate.setHours(12, 0, 0, 0)
             
-            console.log('🔍 NEW CODE - Date normalized to noon:', appointmentDate.toISOString())
             console.log('📅 Creating appointment:', {
               date: appointmentDate.toISOString(),
               timeSlot: state.proposedTime,
@@ -565,33 +543,32 @@ export async function POST(request: NextRequest) {
             const endTime = formatTime(parseTime(state.proposedTime) + duration / 60)
             const formattedDate = formatDateSr(new Date(state.proposedDate))
             
-            // Očisti stanje
-            sessionState.delete(sessionId)
+            // Očisti stanje - VRAĆAMO PRAZNO STANJE!
+            const clearedState: SessionState = {}
             
-            return NextResponse.json({
-              success: true,
-              response: `✅ **USPEŠNO ZAKAZANO!**\n\n📋 Detalji rezervacije:\n• Usluga: ${serviceName}\n• Datum: ${formattedDate}\n• Vreme: ${state.proposedTime} - ${endTime}\n• Trajanje: ${duration} minuta\n• Pacijent: ${name}\n• Telefon: ${phone}\n\n🦷 Hvala što ste izabrali našu ordinaciju!`,
-            })
+            return jsonResponse(
+              `✅ **USPEŠNO ZAKAZANO!**\n\n📋 Detalji rezervacije:\n• Usluga: ${serviceName}\n• Datum: ${formattedDate}\n• Vreme: ${state.proposedTime} - ${endTime}\n• Trajanje: ${duration} minuta\n• Pacijent: ${name}\n• Telefon: ${phone}\n\n🦷 Hvala što ste izabrali našu ordinaciju!`,
+              clearedState
+            )
           } catch (error) {
-            return NextResponse.json({
-              success: true,
-              response: `❌ Greška prilikom zakazivanja: ${error instanceof Error ? error.message : 'Nepoznata greška'}. Molimo pokušajte ponovo sa drugim terminom.`,
-            })
+            return jsonResponse(
+              `❌ Greška prilikom zakazivanja: ${error instanceof Error ? error.message : 'Nepoznata greška'}. Molimo pokušajte ponovo sa drugim terminom.`,
+              state
+            )
           }
         }
       }
       
-      return NextResponse.json({
-        success: true,
-        response: 'Molimo unesite vaše ime i prezime i broj telefona (npr. "Petar Petrović 0612345678").',
-      })
+      return jsonResponse(
+        'Molimo unesite vaše ime i prezime i broj telefona (npr. "Petar Petrović 0612345678").',
+        state
+      )
     }
     
     // 8. POMOĆ / INFO
     if (lowerMessage.includes('pomoć') || lowerMessage.includes('pomoc') || lowerMessage.includes('info') || lowerMessage.includes('informacije')) {
-      return NextResponse.json({
-        success: true,
-        response: `🦷 **Stomatološka ordinacija "Ortodontic" - Veternik**
+      return jsonResponse(
+        `🦷 **Stomatološka ordinacija "Ortodontic" - Veternik**
 
 📅 **Radno vreme:**
 • Stomatolog: Ponedeljak-Četvrtak 14:00-21:00 (Petak do 18:00)
@@ -602,42 +579,43 @@ export async function POST(request: NextRequest) {
 • Ortodont: Kontrola (15 min), Lepljenje proteze (45 min), Skidanje proteze (45 min)
 
 Da biste zakazali termin, recite da li želite stomatologa ili ortodonta.`,
-      })
+        state
+      )
     }
     
     // 9. DEFAULT - ako ništa ne prepozna
     if (!state.provider) {
-      return NextResponse.json({
-        success: true,
-        response: `🦷 Dobar dan! Ja sam AI asistent stomatološke ordinacije "Ortodontic" iz Veternika.\n\n${getDateInfo()}\nDa li želite da zakažete kod stomatologa ili ortodonta?`,
-      })
+      return jsonResponse(
+        `🦷 Dobar dan! Ja sam AI asistent stomatološke ordinacije "Ortodontic" iz Veternika.\n\n${getDateInfo()}\nDa li želite da zakažete kod stomatologa ili ortodonta?`,
+        state
+      )
     }
     
     if (state.provider && !state.serviceType) {
       if (state.provider === 'DENTIST') {
-        return NextResponse.json({
-          success: true,
-          response: 'Izabrali ste stomatologa. Da li želite popravku ili lečenje zuba?',
-        })
+        return jsonResponse(
+          'Izabrali ste stomatologa. Da li želite popravku ili lečenje zuba?',
+          state
+        )
       } else {
-        return NextResponse.json({
-          success: true,
-          response: 'Izabrali ste ortodonta. Ortodont radi samo petkom od 18:00 do 21:30h. Da li želite kontrolu, lepljenje proteze ili skidanje proteze?',
-        })
+        return jsonResponse(
+          'Izabrali ste ortodonta. Ortodont radi samo petkom od 18:00 do 21:30h. Da li želite kontrolu, lepljenje proteze ili skidanje proteze?',
+          state
+        )
       }
     }
     
     if (state.serviceType && !state.proposedDate) {
-      return NextResponse.json({
-        success: true,
-        response: `Koji dan i koliko sati želite da zakazete?\n\nPrimer: "petak u 18:30" ili "sutra u 15:00"`,
-      })
+      return jsonResponse(
+        `Koji dan i koliko sati želite da zakazete?\n\nPrimer: "petak u 18:30" ili "sutra u 15:00"`,
+        state
+      )
     }
     
-    return NextResponse.json({
-      success: true,
-      response: `Nisam razumeo "${message}". \n\n${!state.provider ? 'Da li želite da zakažete kod stomatologa ili ortodonta?' : state.serviceType ? 'Molimo unesite dan i vreme (npr. "ponedeljak u 15:00" ili "sutra u 16:30").' : 'Molimo izaberite uslugu.'}`
-    })
+    return jsonResponse(
+      `Nisam razumeo "${message}". \n\n${!state.provider ? 'Da li želite da zakažete kod stomatologa ili ortodonta?' : state.serviceType ? 'Molimo unesite dan i vreme (npr. "ponedeljak u 15:00" ili "sutra u 16:30").' : 'Molimo izaberite uslugu.'}`,
+      state
+    )
     
   } catch (error) {
     console.error('Chat error:', error)
@@ -647,16 +625,3 @@ Da biste zakazali termin, recite da li želite stomatologa ili ortodonta.`,
     }, { status: 500 })
   }
 }
-
-// Brisanje sesije
-export async function DELETE(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const sessionId = searchParams.get('sessionId')
-  
-  if (sessionId) {
-    sessionState.delete(sessionId)
-  }
-  
-  return NextResponse.json({ success: true })
-}
-// Force recompile
