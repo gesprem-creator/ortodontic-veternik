@@ -132,33 +132,35 @@ export async function POST(request: NextRequest) {
       notes,
     })
     
-    // Dodaj ili ažuriraj pacijenta u imeniku
+    // Dodaj ili ažuriraj pacijenta u imeniku (samo ako Patient model postoji)
     try {
-      const existingPatient = await db.patient.findFirst({
-        where: { phone: patientPhone },
-      })
-      
-      if (existingPatient) {
-        // Ažuriraj broj poseta i poslednju posetu
-        await db.patient.update({
-          where: { id: existingPatient.id },
-          data: {
-            visitCount: { increment: 1 },
-            lastVisit: appointmentDate,
-          },
+      if (db.patient) {
+        const existingPatient = await db.patient.findFirst({
+          where: { phone: patientPhone },
         })
-      } else {
-        // Kreiraj novog pacijenta
-        await db.patient.create({
-          data: {
-            name: patientName,
-            phone: patientPhone,
-            email: patientEmail || null,
-            notes: notes || null,
-            visitCount: 1,
-            lastVisit: appointmentDate,
-          },
-        })
+        
+        if (existingPatient) {
+          // Ažuriraj broj poseta i poslednju posetu
+          await db.patient.update({
+            where: { id: existingPatient.id },
+            data: {
+              visitCount: { increment: 1 },
+              lastVisit: appointmentDate,
+            },
+          })
+        } else {
+          // Kreiraj novog pacijenta
+          await db.patient.create({
+            data: {
+              name: patientName,
+              phone: patientPhone,
+              email: patientEmail || null,
+              notes: notes || null,
+              visitCount: 1,
+              lastVisit: appointmentDate,
+            },
+          })
+        }
       }
     } catch (patientError) {
       // Ne prekidaj ako ne uspe čuvanje pacijenta

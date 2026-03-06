@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL")
 }
 
 // Tipovi usluga
@@ -21,8 +22,8 @@ enum ServiceType {
 
 // Tip pružaoca usluge
 enum ProviderType {
-  DENTIST      // Stomatolog (ponedeljak-petak, 14h-20h)
-  ORTHODONTIST // Ortodont (samo petak, 18h-21:15h)
+  DENTIST      // Stomatolog
+  ORTHODONTIST // Ortodont
 }
 
 // Status termina
@@ -35,18 +36,17 @@ enum AppointmentStatus {
 
 model Appointment {
   id           String          @id @default(cuid())
-  date         DateTime        // Datum termina (samo datum, vreme je u timeSlot)
-  timeSlot     String          // Vreme termina npr. "14:00", "14:30", "19:00"
-  duration     Int             // Trajanje u minutama (15, 30, 45, 60)
+  date         DateTime        // Datum termina
+  timeSlot     String          // Vreme termina npr. "14:00", "14:30"
+  duration     Int             // Trajanje u minutama
   serviceType  ServiceType
   providerType ProviderType
   status       AppointmentStatus @default(SCHEDULED)
   
-  // Podaci o pacijentu
   patientName  String
   patientPhone String
   patientEmail String?
-  notes        String?         // Napomene
+  notes        String?
   
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
@@ -56,23 +56,20 @@ model Appointment {
   @@index([date, status])
 }
 
-// Chat sesije za čuvanje konteksta razgovora
 model ChatSession {
   id           String   @id @default(cuid())
   sessionId    String   @unique
-  messages     String   // JSON sa istorijom poruka
+  messages     String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
-
-// ==================== AUTH MODELS ====================
 
 model User {
   id            String    @id @default(cuid())
   name          String?
   email         String    @unique
   emailVerified DateTime?
-  password      String    // Hash-ovana lozinka
+  password      String
   role          String    @default("user")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -115,16 +112,14 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// ==================== PATIENT DIRECTORY ====================
-
 model Patient {
   id          String   @id @default(cuid())
-  name        String   // Ime i prezime
-  phone       String   // Broj telefona
-  email       String?  // Email (opcionalno)
-  notes       String?  // Napomene
-  visitCount  Int      @default(0)  // Broj poseta
-  lastVisit   DateTime? // Datum poslednje posete
+  name        String
+  phone       String
+  email       String?
+  notes       String?
+  visitCount  Int      @default(0)
+  lastVisit   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
