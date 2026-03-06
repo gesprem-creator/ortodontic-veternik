@@ -524,30 +524,33 @@ export async function POST(request: NextRequest) {
         serviceType: state.serviceType,
         confirmed: state.confirmed
       })
+      console.log('📝 Raw message:', JSON.stringify(message))
       
-      // Bolji regex za telefon -uhvata brojeve u raznim formatima
-      const hasPhone = /[0-9\s\-\/]{6,}/.test(message) || /\d{6,}/.test(message)
-      const hasName = message.length > 3 && message.includes(' ')
+      // BOLJI regex za telefon - pronađi sve cifre (najmanje 6)
+      const allDigits = message.match(/\d/g)
+      const phone = allDigits ? allDigits.join('') : ''
+      const hasPhone = phone.length >= 6
       
-      console.log('🔍 Parsing name/phone:', { message, hasPhone, hasName })
+      // Ime je sve što nije cifre - može biti jedno ime ili ime i prezime
+      const name = message
+        .replace(/\d+/g, '')
+        .replace(/[^a-zA-ZšđčćžŠĐČĆŽ\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+      const hasName = name.length >= 2 // Samo 2 karaktera je dovoljno za ime
+      
+      console.log('🔍 Parsing name/phone:', { 
+        message, 
+        allDigits: allDigits?.join(''),
+        phone, 
+        hasPhone, 
+        name, 
+        hasName 
+      })
       
       if (hasPhone && hasName) {
-        console.log('✅ Has phone and name, extracting...')
-        // Izvuci telefon - pronađi sve cifre i spoji ih
-        const allDigits = message.match(/\d/g)
-        const phone = allDigits ? allDigits.join('') : ''
-        
-        // Izvuci ime - ukloni sve cifre i nepotrebne karaktere
-        const name = message
-          .replace(/\d+/g, '')
-          .replace(/[^a-zA-ZšđčćžŠĐČĆŽ\s]/g, '')
-          .replace(/\s+/g, ' ')
-          .trim()
-        
-        console.log('📝 Extracted:', { name, phone, nameLength: name.length, phoneLength: phone.length })
-        
-        if (name && phone) {
-          console.log('✅ Name and phone valid, creating appointment...')
+        console.log('✅ Has phone and name, creating appointment...')
+        console.log('📝 Final values:', { name, phone })
           try {
             // Normalizuj datum na podne da bi se izbegli problemi sa vremenskom zonom
             const appointmentDate = new Date(state.proposedDate)
@@ -619,17 +622,18 @@ export async function POST(request: NextRequest) {
               `✅ **USPEŠNO ZAKAZANO!**\n\n📋 Detalji rezervacije:\n• Usluga: ${serviceName}\n• Datum: ${formattedDate}\n• Vreme: ${state.proposedTime} - ${endTime}\n• Trajanje: ${duration} minuta\n• Pacijent: ${name}\n• Telefon: ${phone}\n\n🦷 Hvala što ste izabrali našu ordinaciju!`,
               clearedState
             )
-          } catch (error) {
-            return jsonResponse(
-              `❌ Greška prilikom zakazivanja: ${error instanceof Error ? error.message : 'Nepoznata greška'}. Molimo pokušajte ponovo sa drugim terminom.`,
-              state
-            )
-          }
+        } catch (error) {
+          console.error('❌ Error creating appointment:', error)
+          return jsonResponse(
+            `❌ Greška prilikom zakazivanja: ${error instanceof Error ? error.message : 'Nepoznata greška'}. Molimo pokušajte ponovo sa drugim terminom.`,
+            state
+          )
         }
       }
       
+      console.log('⚠️ Missing name or phone:', { hasPhone, hasName, name, phone })
       return jsonResponse(
-        'Molimo unesite vaše ime i prezime i broj telefona (npr. "Petar Petrović 0612345678").',
+        'Molimo unesite vaše ime i broj telefona (npr. "Petar 0612345678").',
         state
       )
     }

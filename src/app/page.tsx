@@ -291,16 +291,24 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
     setInput('')
 
     try {
-      // Čitaj stanje DIREKTNO iz localStorage (najpouzdanije na mobilnom)
-      let currentState: ChatSessionState = {}
-      try {
-        const savedState = localStorage.getItem('chatSessionState')
-        if (savedState) {
-          currentState = JSON.parse(savedState)
-          console.log('📦 Read state from localStorage:', currentState)
+      // Koristi ref umesto localStorage - ref je UVEK ažuran!
+      // Ako je ref prazan, pokušaj da pročitaš iz localStorage kao fallback
+      let currentState: ChatSessionState = sessionStateRef.current
+      
+      // Ako je ref prazan, pokušaj iz localStorage
+      if (!currentState.provider) {
+        try {
+          const savedState = localStorage.getItem('chatSessionState')
+          if (savedState) {
+            const parsed = JSON.parse(savedState)
+            if (isValidSessionState(parsed)) {
+              currentState = parsed
+              sessionStateRef.current = parsed // Ažuriraj ref
+            }
+          }
+        } catch (e) {
+          console.log('⚠️ Could not read localStorage')
         }
-      } catch (e) {
-        console.log('⚠️ Could not read localStorage')
       }
       
       console.log('📤 Sending message with state:', currentState)
@@ -320,10 +328,8 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
       console.log('📥 API Response:', data)
       console.log('📊 New state:', data.state)
       
-      // DEBUG: Prikaži alert na mobilnom
-      if (typeof window !== 'undefined' && window.innerWidth < 640) {
-        alert(`API Response:\nstate: ${JSON.stringify(data.state || {})}`)
-      }
+      // DEBUG: Logovanje na mobilnom (bez alert-a koji blokira UI)
+      console.log('📱 Mobile debug - state received:', data.state)
 
       if (data.success) {
         // SAČUVAJ novo stanje iz odgovora!
@@ -519,15 +525,6 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
       </ScrollArea>
 
       <div className="p-4 border-t">
-        {/* Debug panel - samo na mobilnom */}
-        <div className="mb-2 p-2 bg-yellow-100 dark:bg-yellow-900 rounded text-xs font-mono overflow-x-auto sm:hidden">
-          <div className="font-bold">DEBUG (mobilni):</div>
-          <div>provider: {sessionState.provider || 'nema'}</div>
-          <div>serviceType: {sessionState.serviceType || 'nema'}</div>
-          <div>proposedDate: {sessionState.proposedDate || 'nema'}</div>
-          <div>proposedTime: {sessionState.proposedTime || 'nema'}</div>
-          <div>confirmed: {sessionState.confirmed ? 'DA' : 'ne'}</div>
-        </div>
         <div className="flex gap-2">
           <Input
             ref={inputRef}
