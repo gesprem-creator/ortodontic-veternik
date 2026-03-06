@@ -52,18 +52,40 @@ function parseDayFromMessage(message: string): { dayOfWeek: number; isToday: boo
   return null
 }
 
-// Parsiranje vremena iz poruke
+// Parsiranje vremena iz poruke - STROŽIJE
 function parseTimeFromMessage(message: string): string | null {
-  const lower = message.toLowerCase()
+  const trimmed = message.trim()
   
-  // Format: "15:00", "15h", "15 sati", "u 15"
-  const timeMatch = lower.match(/(?:u\s+)?(\d{1,2})(?::(\d{2}))?(?:\s*(?:h|sata|sati|časova))?/)
-  if (timeMatch) {
-    const hours = parseInt(timeMatch[1])
-    const minutes = timeMatch[2] ? parseInt(timeMatch[2]) : 0
+  // Format: "15:00" ili "15:30" - MORA biti u formatu HH:MM
+  const exactTimeMatch = trimmed.match(/^(\d{1,2}):(\d{2})$/)
+  if (exactTimeMatch) {
+    const hours = parseInt(exactTimeMatch[1])
+    const minutes = parseInt(exactTimeMatch[2])
     
     if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
       return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+    }
+  }
+  
+  // Format sa rečima: "u 15:00", "15 sati", "15h", "15:30"
+  const lower = trimmed.toLowerCase()
+  const timeWithColon = lower.match(/(?:u\s+)?(\d{1,2}):(\d{2})/)
+  if (timeWithColon) {
+    const hours = parseInt(timeWithColon[1])
+    const minutes = parseInt(timeWithColon[2])
+    
+    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+    }
+  }
+  
+  // Format sa "h" ili "sati": "15h", "15 sati"
+  const timeWithSuffix = lower.match(/(?:u\s+)?(\d{1,2})(?:\s*(?:h|sata|sati|časova|casova))/)
+  if (timeWithSuffix) {
+    const hours = parseInt(timeWithSuffix[1])
+    
+    if (hours >= 0 && hours <= 23) {
+      return `${hours.toString().padStart(2, '0')}:00`
     }
   }
   
@@ -143,6 +165,12 @@ export async function POST(request: NextRequest) {
     
     const state = sessionState.get(sessionId) || {}
     const lowerMessage = message.toLowerCase().trim()
+    
+    // DEBUG logovanje
+    console.log('📩 Message:', message)
+    console.log('📊 Current state:', JSON.stringify(state))
+    console.log('🕐 Parsed time:', parseTimeFromMessage(message))
+    console.log('📅 Parsed day:', parseDayFromMessage(message))
     
     // 1. POZDRAV / POCETAK
     if (lowerMessage.includes('zdravo') || lowerMessage.includes('pozdrav') || lowerMessage.includes('ćao') || lowerMessage.includes('cao') || lowerMessage.includes('dobar dan') || lowerMessage.includes('dobro jutro') || lowerMessage.includes('dobro vece')) {
@@ -566,7 +594,9 @@ Da biste zakazali termin, recite da li želite stomatologa ili ortodonta.`,
     
     return NextResponse.json({
       success: true,
-      response: 'Nisam razumeo. Molimo pokušajte ponovo.',
+      response: `Nisam razumeo "${message}". 
+
+${!state.provider ? 'Da li želite da zakažete kod stomatologa ili ortodonta?' : state.serviceType ? 'Molimo unesite dan i vreme (npr. "ponedeljak u 15:00" ili "sutra u 16:30").' : 'Molimo izaberite uslugu.'}`,
     })
     
   } catch (error) {
