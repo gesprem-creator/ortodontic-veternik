@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
         sessionState.set(sessionId, state)
         return NextResponse.json({
           success: true,
-          response: 'Izabrali ste popravku zuba (60 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-20:00\n• Petak: 14:00-18:00',
+          response: 'Izabrali ste popravku zuba (60 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-21:00\n• Petak: 14:00-18:00',
         })
       }
       if (lowerMessage.includes('lečenje') || lowerMessage.includes('lecenje')) {
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
         sessionState.set(sessionId, state)
         return NextResponse.json({
           success: true,
-          response: 'Izabrali ste lečenje zuba (60 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-20:00\n• Petak: 14:00-18:00',
+          response: 'Izabrali ste lečenje zuba (60 minuta). Koji dan i koliko sati želite da zakazete?\n\nRadno vreme stomatologa:\n• Ponedeljak-Četvrtak: 14:00-21:00\n• Petak: 14:00-18:00',
         })
       }
     }
@@ -455,36 +455,32 @@ export async function POST(request: NextRequest) {
             
             console.log('✅ Appointment created:', appointment.id)
             
-            // Sačuvaj pacijenta u imeniku (samo ako Patient model postoji)
+            // Sačuvaj pacijenta u imeniku
             try {
-              if (db.patient) {
-                const existingPatient = await db.patient.findFirst({
-                  where: { phone: phone },
+              const existingPatient = await db.patient.findFirst({
+                where: { phone: phone },
+              })
+              
+              if (existingPatient) {
+                console.log('📝 Updating existing patient:', existingPatient.id)
+                await db.patient.update({
+                  where: { id: existingPatient.id },
+                  data: {
+                    visitCount: { increment: 1 },
+                    lastVisit: appointmentDate,
+                  },
                 })
-                
-                if (existingPatient) {
-                  console.log('📝 Updating existing patient:', existingPatient.id)
-                  await db.patient.update({
-                    where: { id: existingPatient.id },
-                    data: {
-                      visitCount: { increment: 1 },
-                      lastVisit: appointmentDate,
-                    },
-                  })
-                } else {
-                  console.log('➕ Creating new patient:', name, phone)
-                  const newPatient = await db.patient.create({
-                    data: {
-                      name: name,
-                      phone: phone,
-                      visitCount: 1,
-                      lastVisit: appointmentDate,
-                    },
-                  })
-                  console.log('✅ Patient created:', newPatient.id)
-                }
               } else {
-                console.log('⚠️ Patient model not available, skipping patient save')
+                console.log('➕ Creating new patient:', name, phone)
+                const newPatient = await db.patient.create({
+                  data: {
+                    name: name,
+                    phone: phone,
+                    visitCount: 1,
+                    lastVisit: appointmentDate,
+                  },
+                })
+                console.log('✅ Patient created:', newPatient.id)
               }
             } catch (patientError) {
               console.error('❌ Error saving patient to directory:', patientError)
@@ -524,7 +520,7 @@ export async function POST(request: NextRequest) {
         response: `🦷 **Stomatološka ordinacija "Ortodontic" - Veternik**
 
 📅 **Radno vreme:**
-• Stomatolog: Ponedeljak-Petak 14:00-20:00 (Petak do 18:00)
+• Stomatolog: Ponedeljak-Četvrtak 14:00-21:00, Petak 14:00-18:00
 • Ortodont: Samo Petak 18:00-21:30
 
 📋 **Usluge:**

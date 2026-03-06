@@ -208,6 +208,20 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
     }
   }, [messages, isLoading])
 
+  // Auto-focus input kada se komponenta učita ili kada promeni sessionId
+  useEffect(() => {
+    if (sessionId && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [sessionId])
+
+  // Auto-focus nakon što asistent odgovori
+  useEffect(() => {
+    if (!isLoading && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [isLoading])
+
   const sendMessage = async (messageText?: string) => {
     const textToSend = messageText || input.trim()
     if (!textToSend || isLoading || !sessionId) return
@@ -426,6 +440,7 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
             placeholder="Ukucajte vašu poruku..."
             disabled={isLoading}
             className="flex-1"
+            autoFocus
           />
           <Button
             onClick={sendMessage}
@@ -689,9 +704,9 @@ function AdminPanel() {
   const generateTimeSlots = () => {
     const slots: { time: string; isOrtho: boolean }[] = []
     
-    // Stomatolog: 14:00-20:00 (30 min slotovi) za Pon-Čet
+    // Stomatolog: 14:00-21:00 (30 min slotovi) za Pon-Čet (zadnji termin u 20:00 ili 20:30)
     // Stomatolog: 14:00-18:00 (30 min slotovi) za Petak
-    for (let h = 14; h < 20; h++) {
+    for (let h = 14; h <= 20; h++) {
       slots.push({ time: `${h.toString().padStart(2, '0')}:00`, isOrtho: false })
       slots.push({ time: `${h.toString().padStart(2, '0')}:30`, isOrtho: false })
     }
@@ -948,58 +963,88 @@ function AdminPanel() {
         return min === 0 || min === 30
       }
     } else {
-      // Ponedeljak-Četvrtak: samo stomatolog 14:00-20:00
+      // Ponedeljak-Četvrtak: samo stomatolog 14:00-21:00 (zadnji slot 20:00 ili 20:30)
       if (isOrtho) return false
-      if (hour < 14 || hour >= 20) return false
+      if (hour < 14 || hour >= 21) return false
       return min === 0 || min === 30
     }
   }
 
-  const days = ['Ponedeljak', 'Utorak', 'Sreda', 'Četvrtak', 'Petak']
+  const days = ['Ponedeljak', 'Utorak', 'Sreda', 'Četvrtak', 'Petak (Stom)', 'Petak (Ort)']
 
   // ==================== TABLE VIEW ====================
   const TableView = () => {
     // Pratimo koje ćelije treba da se preskoče zbog rowspan
     const skipCells = new Set<string>()
     
+    // Helper: da li je kolona za ortodonta (zadnja kolona)
+    const isOrthoColumn = (colIdx: number) => colIdx === 5
+    
+    // Helper: dohvati dan iz weekData - za prve 4 kolone normalno, za 5. i 6. kolonu je petak
+    const getDayIndexForColumn = (colIdx: number) => {
+      if (colIdx < 4) return colIdx // Pon-Čet
+      return 4 // Petak (i za stomatologa i za ortodonta)
+    }
+    
     return (
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse min-w-[900px]">
+          <table className="w-full border-collapse min-w-[1000px]">
             <thead>
               <tr className="bg-muted">
                 <th className="border p-2 text-center w-20 bg-gray-100 dark:bg-gray-800">
                   <Clock className="w-4 h-4 mx-auto" />
                 </th>
-                {days.map((day, idx) => {
+                {/* Ponedeljak - Četvrtak */}
+                {[0, 1, 2, 3].map((idx) => {
                   const dayData = getDayByIndex(idx)
-                  const isFriday = idx === 4
                   return (
-                    <th key={day} className={`border p-2 text-center ${isFriday ? 'bg-orange-50 dark:bg-orange-950' : 'bg-emerald-50 dark:bg-emerald-950'}`}>
-                      <div className="font-semibold">{day}</div>
+                    <th key={idx} className="border p-2 text-center bg-emerald-50 dark:bg-emerald-950">
+                      <div className="font-semibold">{days[idx]}</div>
                       <div className="text-xs text-muted-foreground">
                         {dayData?.dateStr || ''}
                       </div>
                       <div className="text-xs mt-1">
-                        {isFriday ? (
-                          <span className="text-purple-600">Stom: 14-18h • Ort: 18-21:30h</span>
-                        ) : (
-                          <span className="text-emerald-600">Stomatolog: 14-20h</span>
-                        )}
+                        <span className="text-emerald-600">14-21h</span>
                       </div>
                     </th>
                   )
                 })}
+                {/* Petak - Stomatolog */}
+                <th className="border p-2 text-center bg-orange-50 dark:bg-orange-950">
+                  <div className="font-semibold">Petak</div>
+                  <div className="text-xs text-muted-foreground">
+                    {getDayByIndex(4)?.dateStr || ''}
+                  </div>
+                  <div className="text-xs mt-1">
+                    <span className="text-orange-600">Stom: 14-18h</span>
+                  </div>
+                </th>
+                {/* Petak - Ortodont */}
+                <th className="border p-2 text-center bg-purple-50 dark:bg-purple-950">
+                  <div className="font-semibold">Petak</div>
+                  <div className="text-xs text-muted-foreground">
+                    {getDayByIndex(4)?.dateStr || ''}
+                  </div>
+                  <div className="text-xs mt-1">
+                    <span className="text-purple-600">Ort: 18-21:30h</span>
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>
               {timeSlots.map((slot, slotIndex) => {
                 const { time, isOrtho } = slot
                 
-                // Proveri da li bar jedan dan prikazuje ovaj slot
+                // Za ortodontske slotove, prikaži samo u ortodontskoj koloni (zadnja)
+                // Za stomatološke slotove, prikaži u prve 5 kolona
+                const relevantColumns = isOrtho ? [5] : [0, 1, 2, 3, 4]
+                
+                // Proveri da li bar jedna kolona prikazuje ovaj slot
                 let showRow = false
-                for (let i = 0; i < 5; i++) {
-                  if (isValidSlot(time, isOrtho, i + 1)) {
+                for (const colIdx of relevantColumns) {
+                  const dayIdx = getDayIndexForColumn(colIdx)
+                  if (isValidSlot(time, isOrtho, dayIdx + 1)) {
                     showRow = true
                     break
                   }
@@ -1012,12 +1057,21 @@ function AdminPanel() {
                       {time}
                       {isOrtho && <span className="text-purple-500 text-xs ml-1">O</span>}
                     </td>
-                    {[0, 1, 2, 3, 4].map((dayIdx) => {
+                    {[0, 1, 2, 3, 4, 5].map((colIdx) => {
+                      // Preskoči stomatološke kolone za ortodontske redove
+                      if (isOrtho && colIdx < 5) {
+                        return null
+                      }
+                      // Preskoči ortodontsku kolonu za stomatološke redove
+                      if (!isOrtho && colIdx === 5) {
+                        return null
+                      }
+                      
+                      const dayIdx = getDayIndexForColumn(colIdx)
                       const dayOfWeek = dayIdx + 1
                       const dayData = getDayByIndex(dayIdx)
                       const dateStr = dayData?.dateStr || ''
-                      const isFriday = dayIdx === 4
-                      const cellKey = `${dayIdx}_${time}_${isOrtho}`
+                      const cellKey = `${colIdx}_${time}_${isOrtho}`
                       
                       // Ako je ova ćelija obeležena za preskakanje, ne renderuj je
                       if (skipCells.has(cellKey)) {
@@ -1026,7 +1080,7 @@ function AdminPanel() {
                       
                       if (!isValidSlot(time, isOrtho, dayOfWeek)) {
                         return (
-                          <td key={dayIdx} className="border p-0 bg-gray-200 dark:bg-gray-800">
+                          <td key={colIdx} className="border p-0 bg-gray-200 dark:bg-gray-800">
                             <div className="h-10"></div>
                           </td>
                         )
@@ -1044,7 +1098,7 @@ function AdminPanel() {
                         for (let i = 1; i < rowSpan; i++) {
                           const nextSlot = timeSlots[slotIndex + i]
                           if (nextSlot && nextSlot.isOrtho === isOrtho) {
-                            skipCells.add(`${dayIdx}_${nextSlot.time}_${isOrtho}`)
+                            skipCells.add(`${colIdx}_${nextSlot.time}_${isOrtho}`)
                           }
                         }
                         
@@ -1052,9 +1106,9 @@ function AdminPanel() {
                         
                         return (
                           <td 
-                            key={dayIdx} 
+                            key={colIdx} 
                             rowSpan={rowSpan}
-                            className={`border p-0 cursor-pointer transition-colors ${isFriday && isOrtho ? 'bg-purple-50/50 dark:bg-purple-950/50' : ''}`}
+                            className={`border p-0 cursor-pointer transition-colors ${colIdx === 5 ? 'bg-purple-50/50 dark:bg-purple-950/50' : ''}`}
                             onClick={() => handleSlotClick(dateStr, time, dayOfWeek, isOrtho)}
                           >
                             <div 
@@ -1074,7 +1128,7 @@ function AdminPanel() {
                       if (coveringApt) {
                         return (
                           <td 
-                            key={dayIdx} 
+                            key={colIdx} 
                             className={`border p-0 cursor-pointer ${serviceColors[coveringApt.serviceType]} opacity-60`}
                             onClick={() => handleSlotClick(dateStr, time, dayOfWeek, isOrtho, coveringApt)}
                           >
@@ -1088,8 +1142,8 @@ function AdminPanel() {
                       // Prazan slot
                       return (
                         <td 
-                          key={dayIdx} 
-                          className={`border p-0 cursor-pointer transition-colors ${isFriday && isOrtho ? 'bg-purple-50/50 dark:bg-purple-950/50' : ''}`}
+                          key={colIdx} 
+                          className={`border p-0 cursor-pointer transition-colors ${colIdx === 5 ? 'bg-purple-50/50 dark:bg-purple-950/50' : ''}`}
                           onClick={() => handleSlotClick(dateStr, time, dayOfWeek, isOrtho)}
                         >
                           <div className="h-10 flex items-center justify-center hover:bg-emerald-100 dark:hover:bg-emerald-900 transition-colors">
@@ -1134,7 +1188,7 @@ function AdminPanel() {
                       <Badge variant="outline" className="text-purple-600 border-purple-300">Ortodont: 18-21:30h</Badge>
                     </>
                   ) : (
-                    <Badge variant="outline" className="text-emerald-600 border-emerald-300">Stomatolog: 14-20h</Badge>
+                    <Badge variant="outline" className="text-emerald-600 border-emerald-300">Stomatolog: 14-21h</Badge>
                   )}
                 </div>
               </div>
@@ -1423,11 +1477,15 @@ export default function Home() {
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-emerald-600 border-emerald-300">
                 <Clock className="w-3 h-3 mr-1" />
-                Pon-Pet: 14-20h
+                Pon-Čet: 14-21h
+              </Badge>
+              <Badge variant="outline" className="text-orange-600 border-orange-300">
+                <Clock className="w-3 h-3 mr-1" />
+                Pet: 14-18h
               </Badge>
               <Badge variant="outline" className="text-purple-600 border-purple-300">
                 <Stethoscope className="w-3 h-3 mr-1" />
-                Ortodont: Petak 18-21:30h
+                Ortodont: Pet 18-21:30h
               </Badge>
             </div>
           </div>

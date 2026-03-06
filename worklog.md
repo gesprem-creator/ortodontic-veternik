@@ -130,3 +130,24 @@ Stage Summary:
   - Email: ortodontic.info@gmail.com
   - Lozinka: Ordinacija021
 
+---
+Task ID: 4
+Agent: Main
+Task: Popravka prikaza termina u admin panelu i čuvanja pacijenata
+
+Work Log:
+- Utvrđeno da šema koristi SQLite provider (ispravno za lokalni razvoj)
+- Push-ovana šema u bazu podataka
+- Provereno da termini postoje u bazi (12 termina)
+- Provereno da Patient model funkcioniše ispravno
+- Kreiran test termin i test pacijent za verifikaciju
+- Očišćeni test podaci
+- Verifikovano da sve funkcionalnosti rade ispravno
+
+Stage Summary:
+- Termini se ispravno čuvaju i prikazuju u admin panelu
+- Pacijenti se čuvaju u imeniku
+- Datum se normalizuje na podne (12:00) da bi se izbegli problemi sa vremenskom zonom
+- Sve funkcionalnosti rade ispravno lokalno
+- Napomena: Za produkciju na Vercel, potrebno je konfigurisati Supabase DATABASE_URL
+
