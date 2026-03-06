@@ -1564,7 +1564,10 @@ export default function Home() {
       <footer className="border-t py-4 bg-white/80 dark:bg-gray-900/80 mt-auto">
         <div className="container mx-auto px-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
-            <div>© 2025 Ortodontic Veternik - Stomatološka ordinacija</div>
+            <div className="flex items-center gap-2">
+              <span>© 2025 Ortodontic Veternik</span>
+              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">v2.0</span>
+            </div>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <a href="tel:021821467" className="flex items-center gap-1 hover:text-emerald-600">
                 <Phone className="w-3 h-3" />
