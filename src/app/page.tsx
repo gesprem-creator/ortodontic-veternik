@@ -1570,7 +1570,7 @@ export default function Home() {
                 <Smile className="w-5 h-5" />
               </div>
               <div>
-                <h1 className="text-xl font-bold">Ortodontic Veternik</h1>
+                <h1 className="text-xl font-bold">Ortodontic Veternik <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">v3.8</span></h1>
                 <p className="text-xs text-muted-foreground">Stomatološka ordinacija</p>
               </div>
             </div>
