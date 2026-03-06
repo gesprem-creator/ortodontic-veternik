@@ -31,7 +31,8 @@ import {
   Lock,
   Mail,
   Users,
-  Search
+  Search,
+  MapPin
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -1409,8 +1410,8 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-emerald-50/50 to-white dark:from-gray-950 dark:to-gray-900">
       {/* Header */}
       <header className="border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-500 text-white">
                 <Smile className="w-5 h-5" />
@@ -1420,7 +1421,40 @@ export default function Home() {
                 <p className="text-xs text-muted-foreground">Stomatološka ordinacija</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            
+            {/* Kontakt info - mobilni prikaz */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm">
+              {/* Telefoni */}
+              <a 
+                href="tel:021821467" 
+                className="flex items-center gap-1 text-emerald-600 hover:text-emerald-700 hover:underline"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span className="font-medium">021/821-467</span>
+              </a>
+              <a 
+                href="tel:0642503304" 
+                className="flex items-center gap-1 text-emerald-600 hover:text-emerald-700 hover:underline"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span className="font-medium">064/250-3304</span>
+              </a>
+              
+              {/* Adresa */}
+              <a 
+                href="https://www.google.com/maps/search/?api=1&query=Ive+Andrica+1+Veternik+Novi+Sad" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-gray-600 hover:text-gray-800 hover:underline dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Ive Andrića 1, Veternik</span>
+                <span className="sm:hidden">Lokacija</span>
+              </a>
+            </div>
+            
+            {/* Radno vreme - desktop */}
+            <div className="hidden lg:flex items-center gap-2">
               <Badge variant="outline" className="text-emerald-600 border-emerald-300">
                 <Clock className="w-3 h-3 mr-1" />
                 Pon-Čet: 14-21h
@@ -1471,13 +1505,26 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t py-4 bg-white/80 dark:bg-gray-900/80 mt-auto">
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
             <div>© 2025 Ortodontic Veternik - Stomatološka ordinacija</div>
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <a href="tel:021821467" className="flex items-center gap-1 hover:text-emerald-600">
                 <Phone className="w-3 h-3" />
-                011-123-4567
-              </span>
+                021/821-467
+              </a>
+              <a href="tel:0642503304" className="flex items-center gap-1 hover:text-emerald-600">
+                <Phone className="w-3 h-3" />
+                064/250-3304
+              </a>
+              <a 
+                href="https://www.google.com/maps/search/?api=1&query=Ive+Andrica+1+Veternik+Novi+Sad" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 hover:text-emerald-600"
+              >
+                <MapPin className="w-3 h-3" />
+                Ive Andrića 1, Veternik
+              </a>
             </div>
           </div>
         </div>
