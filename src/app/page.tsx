@@ -525,6 +525,28 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
       </ScrollArea>
 
       <div className="p-4 border-t">
+        {/* Debug panel - privremeno za testiranje */}
+        <div className="mb-2 p-2 bg-yellow-100 dark:bg-yellow-900 rounded text-xs font-mono overflow-x-auto">
+          <div className="font-bold">DEBUG:</div>
+          <div>provider: {sessionState.provider || 'nema'}</div>
+          <div>serviceType: {sessionState.serviceType || 'nema'}</div>
+          <div>proposedDate: {sessionState.proposedDate || 'nema'}</div>
+          <div>proposedTime: {sessionState.proposedTime || 'nema'}</div>
+          <div>confirmed: {sessionState.confirmed ? 'DA' : 'ne'}</div>
+          <Button 
+            variant="destructive" 
+            size="sm" 
+            className="h-6 text-xs px-2 mt-1"
+            onClick={() => {
+              localStorage.removeItem('chatSessionState')
+              setSessionState({})
+              sessionStateRef.current = {}
+              alert('State reset!')
+            }}
+          >
+            Reset
+          </Button>
+        </div>
         <div className="flex gap-2">
           <Input
             ref={inputRef}
