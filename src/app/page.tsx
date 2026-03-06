@@ -178,6 +178,26 @@ interface ChatSessionState {
   proposedDate?: string
   proposedTime?: string
   confirmed?: boolean
+  timestamp?: number // Za proveru starosti stanja
+}
+
+// Pomoćna funkcija da proveri da li je stanje validno
+function isValidSessionState(state: ChatSessionState | null): boolean {
+  if (!state) return false
+  
+  // Ako nema provider, stanje je prazno ili nevalidno
+  if (!state.provider) return false
+  
+  // Ako je confirmed ali nema datum/vreme - nevalidno!
+  if (state.confirmed && (!state.proposedDate || !state.proposedTime)) return false
+  
+  // Ako je stanje starije od 1 sat - nevalidno
+  if (state.timestamp) {
+    const oneHourAgo = Date.now() - 60 * 60 * 1000
+    if (state.timestamp < oneHourAgo) return false
+  }
+  
+  return true
 }
 
 function ChatInterface() {
@@ -203,10 +223,22 @@ function ChatInterface() {
       try {
         const parsed = JSON.parse(savedState)
         console.log('🔄 Loaded saved session state:', parsed)
-        setSessionState(parsed)
-        sessionStateRef.current = parsed // AŽURIRAJ I REF!
+        
+        // PROVERI DA LI JE STANJE VALIDNO!
+        if (isValidSessionState(parsed)) {
+          console.log('✅ State is valid, using it')
+          setSessionState(parsed)
+          sessionStateRef.current = parsed
+        } else {
+          // Obriši nevalidno stanje
+          console.log('❌ State is invalid or expired, clearing it')
+          localStorage.removeItem('chatSessionState')
+          setSessionState({})
+          sessionStateRef.current = {}
+        }
       } catch {
-        console.log('⚠️ Could not parse saved session state')
+        console.log('⚠️ Could not parse saved session state, clearing')
+        localStorage.removeItem('chatSessionState')
       }
     }
     
@@ -1604,7 +1636,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <span>© 2025 Ortodontic Veternik</span>
-              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">v3.1</span>
+              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">v3.2</span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <a href="tel:021821467" className="flex items-center gap-1 hover:text-emerald-600">

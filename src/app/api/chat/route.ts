@@ -129,6 +129,7 @@ export interface SessionState {
   proposedDate?: string
   proposedTime?: string
   confirmed?: boolean
+  timestamp?: number // Za proveru starosti stanja
 }
 
 // ==================== POMOĆNE FUNKCIJE ZA ODGOVORE ====================
@@ -163,10 +164,16 @@ function jsonResponse(
     timeSlots?: string[]
   } = {}
 ) {
+  // UVEK dodaj timestamp u stanje!
+  const stateWithTimestamp = {
+    ...state,
+    timestamp: Date.now()
+  }
+  
   return NextResponse.json({
     success: true,
     response,
-    state, // UVEK vrati stanje klijentu!
+    state: stateWithTimestamp, // Vrati stanje sa timestampom!
     ...options
   })
 }
