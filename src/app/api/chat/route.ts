@@ -322,13 +322,7 @@ export async function POST(request: NextRequest) {
             buttons: [
               { text: '✅ Da', value: 'Da' },
               { text: '❌ Ne', value: 'Ne' },
-            ],
-            debug: {
-              processed: 'TIME_CLICKED',
-              time: timeStr,
-              date: state.proposedDate,
-              sessionId: sessionId?.substring(0, 20)
-            }
+            ]
           })
         } else {
           // Traži sledeći slobodan
@@ -451,12 +445,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({
             success: true,
             response: `📅 ${DAYS_SR[date.getDay()]}, ${formatDateSr(date)}\n\nSlobodni termini:\n${slots.map(s => `• ${s}`).join('\n')}\n\nIzaberite vreme kada želite da dođete.`,
-            timeSlots: slots, // Dodaj slotove kao posebno polje za klikabilne dugmiće
-            debug: {
-              savedDate: state.proposedDate,
-              sessionId: sessionId?.substring(0, 20),
-              hint: 'Datum je sačuvan. Kliknite na vreme da nastavite.'
-            }
+            timeSlots: slots
           })
         } else {
           return NextResponse.json({
@@ -647,13 +636,7 @@ Da biste zakazali termin, recite da li želite stomatologa ili ortodonta.`,
     
     return NextResponse.json({
       success: true,
-      response: `Nisam razumeo "${message}". 
-
-${!state.provider ? 'Da li želite da zakažete kod stomatologa ili ortodonta?' : state.serviceType ? 'Molimo unesite dan i vreme (npr. "ponedeljak u 15:00" ili "sutra u 16:30").' : 'Molimo izaberite uslugu.'}`,
-      debug: {
-        state: { provider: state.provider, serviceType: state.serviceType, proposedDate: state.proposedDate },
-        parsed: { dayInfo: parseDayFromMessage(message), timeStr: parseTimeFromMessage(message) }
-      }
+      response: `Nisam razumeo "${message}". \n\n${!state.provider ? 'Da li želite da zakažete kod stomatologa ili ortodonta?' : state.serviceType ? 'Molimo unesite dan i vreme (npr. "ponedeljak u 15:00" ili "sutra u 16:30").' : 'Molimo izaberite uslugu.'}`
     })
     
   } catch (error) {
