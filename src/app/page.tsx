@@ -470,9 +470,17 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
                         key={idx}
                         variant="outline"
                         size="sm"
-                        onClick={() => sendMessage(slot)}
+                        onClick={() => {
+                          console.log('🖱️ onClick triggered for slot:', slot)
+                          sendMessage(slot)
+                        }}
+                        onTouchEnd={(e) => {
+                          e.preventDefault()
+                          console.log('👆 onTouchEnd triggered for slot:', slot)
+                          sendMessage(slot)
+                        }}
                         disabled={isLoading}
-                        className="rounded-lg border-emerald-300 hover:bg-emerald-50 hover:border-emerald-400 text-emerald-700 dark:border-emerald-600 dark:hover:bg-emerald-950 dark:text-emerald-300 font-mono"
+                        className="rounded-lg border-emerald-300 hover:bg-emerald-50 hover:border-emerald-400 text-emerald-700 dark:border-emerald-600 dark:hover:bg-emerald-950 dark:text-emerald-300 font-mono touch-manipulation"
                       >
                         {slot}
                       </Button>
@@ -503,6 +511,11 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
       </ScrollArea>
 
       <div className="p-4 border-t">
+        {/* Debug panel - samo na mobilnom */}
+        <div className="mb-2 p-2 bg-yellow-100 dark:bg-yellow-900 rounded text-xs font-mono overflow-x-auto sm:hidden">
+          <div className="font-bold">DEBUG (mobilni):</div>
+          <div>State: {JSON.stringify(sessionStateRef.current)}</div>
+        </div>
         <div className="flex gap-2">
           <Input
             ref={inputRef}
@@ -1636,7 +1649,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <span>© 2025 Ortodontic Veternik</span>
-              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">v3.5</span>
+              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">v3.6</span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <a href="tel:021821467" className="flex items-center gap-1 hover:text-emerald-600">
