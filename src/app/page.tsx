@@ -185,6 +185,7 @@ function ChatInterface() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [sessionState, setSessionState] = useState<ChatSessionState>({})
+  const sessionStateRef = useRef<ChatSessionState>({}) // UVEK ažurno stanje!
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -203,6 +204,7 @@ function ChatInterface() {
         const parsed = JSON.parse(savedState)
         console.log('🔄 Loaded saved session state:', parsed)
         setSessionState(parsed)
+        sessionStateRef.current = parsed // AŽURIRAJ I REF!
       } catch {
         console.log('⚠️ Could not parse saved session state')
       }
@@ -244,15 +246,32 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
     setIsLoading(true)
 
     try {
-      // Šalji trenutno stanje sesije sa zahtevom
-      console.log('📤 Sending message with state:', sessionState)
+      // Čitaj stanje direktno iz ref (uvež ažurno) i localStorage kao backup
+      let currentState = sessionStateRef.current
+      
+      // Backup: pokušaj da pročitaš iz localStorage ako ref nije ažuriran
+      try {
+        const savedState = localStorage.getItem('chatSessionState')
+        if (savedState) {
+          const parsed = JSON.parse(savedState)
+          // Ako localStorage ima proposedDate a ref nema, koristi localStorage
+          if (parsed.proposedDate && !currentState.proposedDate) {
+            currentState = parsed
+            console.log('📦 Using localStorage state as backup:', parsed)
+          }
+        }
+      } catch (e) {
+        console.log('⚠️ Could not read localStorage backup')
+      }
+      
+      console.log('📤 Sending message with state:', currentState)
       
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: textToSend,
-          clientState: sessionState, // KLJUČNO: šaljemo stanje!
+          clientState: currentState, // Koristi ref umesto state!
         }),
       })
 
@@ -265,8 +284,9 @@ Da li želite da zakažete kod stomatologa ili ortodonta?`,
       if (data.success) {
         // SAČUVAJ novo stanje iz odgovora!
         if (data.state) {
-          console.log('💾 Saving state to localStorage:', data.state)
+          console.log('💾 Saving state:', data.state)
           setSessionState(data.state)
+          sessionStateRef.current = data.state // AŽURIRAJ I REF!
           localStorage.setItem('chatSessionState', JSON.stringify(data.state))
         }
         
@@ -1584,7 +1604,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <span>© 2025 Ortodontic Veternik</span>
-              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">v3.0</span>
+              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">v3.1</span>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <a href="tel:021821467" className="flex items-center gap-1 hover:text-emerald-600">
