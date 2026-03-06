@@ -248,10 +248,78 @@ export async function POST(request: NextRequest) {
     }
     
     // 5. UNOS DATUMA I VREMENA (nakon odabira usluge)
-    if (state.serviceType && !state.proposedDate) {
+    if (state.serviceType) {
       const dayInfo = parseDayFromMessage(message)
       const timeStr = parseTimeFromMessage(message)
       
+      console.log('🔍 Checking date/time input:', { dayInfo, timeStr, proposedDate: state.proposedDate })
+      
+      // PRVO: Ako imamo samo vreme (klik na dugme) i imamo zapamćen datum
+      if (!dayInfo && timeStr && state.proposedDate) {
+        console.log('⏰ Processing time with saved date:', timeStr, state.proposedDate)
+        const date = new Date(state.proposedDate)
+        
+        // Provera za stomatologa - petak posle 18h ne radi (tu je ortodont)
+        if (state.provider === 'DENTIST' && date.getDay() === 5) {
+          const requestedHour = parseInt(timeStr.split(':')[0])
+          if (requestedHour >= 18) {
+            return NextResponse.json({
+              success: true,
+              response: '❌ U tim terminima radi ortodont. Izaberite neki raniji termin u petak, npr. 17:00 ili ranije.\n\nRadno vreme stomatologa petkom je od 14:00 do 18:00.',
+            })
+          }
+        }
+        
+        // Proveri dostupnost
+        const result = await isSlotAvailable(date, timeStr, state.serviceType)
+        
+        if (result.available) {
+          state.proposedTime = timeStr
+          sessionState.set(sessionId, state)
+          
+          const serviceName = SERVICE_NAMES[state.serviceType]
+          const duration = SERVICE_DURATIONS[state.serviceType]
+          const endTime = formatTime(parseTime(timeStr) + duration / 60)
+          
+          return NextResponse.json({
+            success: true,
+            response: `✅ Termin je slobodan!\n\n📅 **${serviceName}**\n🗓️ ${DAYS_SR[date.getDay()]}, ${formatDateSr(date)}\n🕐 ${timeStr} - ${endTime} (${duration} min)\n\nDa li vam odgovara ovaj termin? Odgovorite sa "da" ili "ne".`,
+            buttons: [
+              { text: '✅ Da', value: 'Da' },
+              { text: '❌ Ne', value: 'Ne' },
+            ],
+          })
+        } else {
+          // Traži sledeći slobodan
+          const nextSlot = await findNextAvailableSlot(date, state.serviceType, timeStr)
+          
+          if (nextSlot) {
+            state.proposedDate = nextSlot.dateISO
+            state.proposedTime = nextSlot.timeSlot
+            sessionState.set(sessionId, state)
+            
+            const serviceName = SERVICE_NAMES[state.serviceType]
+            const duration = SERVICE_DURATIONS[state.serviceType]
+            const endTime = formatTime(parseTime(nextSlot.timeSlot) + duration / 60)
+            
+            return NextResponse.json({
+              success: true,
+              response: `❌ Nažalost, termin u ${timeStr} je zauzet.\n\n💡 **Prvi slobodni termin:**\n📅 ${nextSlot.dayName}, ${nextSlot.dateStr}\n🕐 ${nextSlot.timeSlot} - ${endTime}\n\nDa li vam odgovara ovaj termin? Odgovorite sa "da" ili "ne".`,
+              buttons: [
+                { text: '✅ Da', value: 'Da' },
+                { text: '❌ Ne', value: 'Ne' },
+              ],
+            })
+          } else {
+            return NextResponse.json({
+              success: true,
+              response: '❌ Nažalost, nema slobodnih termina u narednih 14 dana za ovu uslugu. Molimo pokušajte kasnije.',
+            })
+          }
+        }
+      }
+      
+      // DRUGO: Ako su i dan i vreme uneti zajedno
       if (dayInfo && timeStr) {
         const date = getDayDate(dayInfo.dayOfWeek, dayInfo.isToday, dayInfo.isTomorrow)
         
@@ -350,70 +418,7 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // Ako je poslato samo vreme (klik na dugme), a imamo zapamćen datum
-      if (!dayInfo && timeStr && state.proposedDate) {
-        const date = new Date(state.proposedDate)
-        
-        // Provera za stomatologa - petak posle 18h ne radi (tu je ortodont)
-        if (state.provider === 'DENTIST' && date.getDay() === 5) {
-          const requestedHour = parseInt(timeStr.split(':')[0])
-          if (requestedHour >= 18) {
-            return NextResponse.json({
-              success: true,
-              response: '❌ U tim terminima radi ortodont. Izaberite neki raniji termin u petak, npr. 17:00 ili ranije.\n\nRadno vreme stomatologa petkom je od 14:00 do 18:00.',
-            })
-          }
-        }
-        
-        // Proveri dostupnost
-        const result = await isSlotAvailable(date, timeStr, state.serviceType)
-        
-        if (result.available) {
-          state.proposedTime = timeStr
-          sessionState.set(sessionId, state)
-          
-          const serviceName = SERVICE_NAMES[state.serviceType]
-          const duration = SERVICE_DURATIONS[state.serviceType]
-          const endTime = formatTime(parseTime(timeStr) + duration / 60)
-          
-          return NextResponse.json({
-            success: true,
-            response: `✅ Termin je slobodan!\n\n📅 **${serviceName}**\n🗓️ ${DAYS_SR[date.getDay()]}, ${formatDateSr(date)}\n🕐 ${timeStr} - ${endTime} (${duration} min)\n\nDa li vam odgovara ovaj termin? Odgovorite sa "da" ili "ne".`,
-            buttons: [
-              { text: '✅ Da', value: 'Da' },
-              { text: '❌ Ne', value: 'Ne' },
-            ],
-          })
-        } else {
-          // Traži sledeći slobodan
-          const nextSlot = await findNextAvailableSlot(date, state.serviceType, timeStr)
-          
-          if (nextSlot) {
-            state.proposedDate = nextSlot.dateISO
-            state.proposedTime = nextSlot.timeSlot
-            sessionState.set(sessionId, state)
-            
-            const serviceName = SERVICE_NAMES[state.serviceType]
-            const duration = SERVICE_DURATIONS[state.serviceType]
-            const endTime = formatTime(parseTime(nextSlot.timeSlot) + duration / 60)
-            
-            return NextResponse.json({
-              success: true,
-              response: `❌ Nažalost, termin ${formatDateSr(date)} u ${timeStr} je zauzet.\n\n💡 **Prvi slobodni termin:**\n📅 ${nextSlot.dayName}, ${nextSlot.dateStr}\n🕐 ${nextSlot.timeSlot} - ${endTime}\n\nDa li vam odgovara ovaj termin? Odgovorite sa "da" ili "ne".`,
-              buttons: [
-                { text: '✅ Da', value: 'Da' },
-                { text: '❌ Ne', value: 'Ne' },
-              ],
-            })
-          } else {
-            return NextResponse.json({
-              success: true,
-              response: '❌ Nažalost, nema slobodnih termina u narednih 14 dana za ovu uslugu. Molimo pokušajte kasnije.',
-            })
-          }
-        }
-      }
-      
+      // TREĆE: Ako je samo vreme a NEMAMO zapamćen datum
       if (!dayInfo && timeStr && !state.proposedDate) {
         return NextResponse.json({
           success: true,
