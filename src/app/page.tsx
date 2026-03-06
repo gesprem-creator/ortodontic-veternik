@@ -186,8 +186,17 @@ function ChatInterface() {
   ]
 
   useEffect(() => {
-    // Generate session ID only on client
-    setSessionId(`session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
+    // Generate session ID only on client - probaj da ga pročitaš iz localStorage prvo
+    const savedSessionId = localStorage.getItem('chatSessionId')
+    if (savedSessionId) {
+      console.log('🔄 Using saved session ID:', savedSessionId.substring(0, 20))
+      setSessionId(savedSessionId)
+    } else {
+      const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      console.log('🆕 Generated new session ID:', newSessionId.substring(0, 20))
+      localStorage.setItem('chatSessionId', newSessionId)
+      setSessionId(newSessionId)
+    }
     
     setMessages([
       {
