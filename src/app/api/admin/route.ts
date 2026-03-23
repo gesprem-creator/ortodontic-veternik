@@ -5,9 +5,6 @@ import { db } from '@/lib/db';
 const ADMIN_EMAIL = 'ortodontic.info@gmail.com';
 const ADMIN_PASSWORD = 'Ordinacija021';
 
-// Simple session storage (in production use proper session management)
-const adminSessions = new Set<string>();
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -17,12 +14,8 @@ export async function POST(request: NextRequest) {
       const { email, password } = data;
       
       if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-        const sessionId = Math.random().toString(36).substring(2, 15);
-        adminSessions.add(sessionId);
-        
         return NextResponse.json({
           success: true,
-          sessionId,
           message: 'Uspešno ste se prijavili.',
         });
       }
@@ -30,26 +23,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         message: 'Pogrešan email ili lozinka.',
-      });
-    }
-
-    if (action === 'verify') {
-      const { sessionId } = data;
-      
-      if (adminSessions.has(sessionId)) {
-        return NextResponse.json({ success: true });
-      }
-      
-      return NextResponse.json({ success: false });
-    }
-
-    if (action === 'logout') {
-      const { sessionId } = data;
-      adminSessions.delete(sessionId);
-      
-      return NextResponse.json({
-        success: true,
-        message: 'Uspešno ste se odjavili.',
       });
     }
 

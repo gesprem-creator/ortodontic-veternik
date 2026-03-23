@@ -247,6 +247,16 @@ export default function HomePage() {
     }
   }, [scheduleWeekStart, isLoggedIn, fetchSchedule]);
 
+  // Check if already logged in from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedLogin = localStorage.getItem('adminLoggedIn');
+      if (storedLogin === 'true') {
+        setIsLoggedIn(true);
+      }
+    }
+  }, []);
+
   // Handle admin login
   const handleLogin = async () => {
     try {
@@ -263,6 +273,7 @@ export default function HomePage() {
       
       if (data.success) {
         setIsLoggedIn(true);
+        localStorage.setItem('adminLoggedIn', 'true');
         setLoginError('');
         fetchData();
         fetchSchedule();
@@ -277,6 +288,7 @@ export default function HomePage() {
   // Handle admin logout
   const handleLogout = () => {
     setIsLoggedIn(false);
+    localStorage.removeItem('adminLoggedIn');
     setLoginEmail('');
     setLoginPassword('');
     setPatients([]);
@@ -1339,9 +1351,8 @@ export default function HomePage() {
               
               <TabsContent value="table" className="flex-1 overflow-hidden mt-0">
                 <div className="h-full flex flex-col">
-                  <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <Button onClick={() => {
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+                    <Button onClick={() => {
                         setBookingError('');
                         setAvailableSlots([]);
                         setAvailableServices([]); // Reset available services
@@ -1360,35 +1371,36 @@ export default function HomePage() {
                         <Calendar className="w-4 h-4 mr-2" />
                         Novi termin
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const prev = new Date(scheduleWeekStart);
-                          prev.setDate(prev.getDate() - 7);
-                          setScheduleWeekStart(prev);
-                        }}
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <span className="font-medium text-sm whitespace-nowrap">
-                        {formatDateDisplay(scheduleWeekStart.toISOString().split('T')[0])} - {
-                          formatDateDisplay(new Date(scheduleWeekStart.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
-                        }
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const next = new Date(scheduleWeekStart);
-                          next.setDate(next.getDate() + 7);
-                          setScheduleWeekStart(next);
-                        }}
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const prev = new Date(scheduleWeekStart);
+                            prev.setDate(prev.getDate() - 7);
+                            setScheduleWeekStart(prev);
+                          }}
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </Button>
+                        <span className="font-medium text-sm whitespace-nowrap">
+                          {formatDateDisplay(scheduleWeekStart.toISOString().split('T')[0])} - {
+                            formatDateDisplay(new Date(scheduleWeekStart.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+                          }
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const next = new Date(scheduleWeekStart);
+                            next.setDate(next.getDate() + 7);
+                            setScheduleWeekStart(next);
+                          }}
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
                   
                   {/* Raspored sa touch scroll */}
                   <div className="flex-1 overflow-x-auto pb-2 -mx-2 px-2">
