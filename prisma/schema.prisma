@@ -1,0 +1,45 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Patient {
+  id          String        @id @default(cuid())
+  firstName   String
+  lastName    String
+  phone       String        @unique
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  appointments Appointment[]
+}
+
+model Appointment {
+  id           String      @id @default(cuid())
+  patientId    String
+  patient      Patient     @relation(fields: [patientId], references: [id])
+  doctorType   String      // "stomatolog" or "ortodont"
+  serviceType  String      // lecenje, popravka, skidanje_kamenca, kontrola, lepljenje_proteze, skidanje_proteze
+  duration     Int         // in minutes
+  date         String      // YYYY-MM-DD format
+  time         String      // HH:MM format
+  dayOfWeek    Int         // 0-6 (0 = Sunday, 1 = Monday, etc.)
+  status       String      @default("active") // active, cancelled
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
